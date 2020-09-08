@@ -1,4 +1,4 @@
-<img src="https://github.com/Jacobiano/morpholayers/logo.png" alt="drawing" width="400px" style="display: block; margin-left: auto; margin-right: auto"/>
+<img src="https://github.com/Jacobiano/morpholayers/blob/master/logo.png" alt="morpholayers" width="400px" style="display: block; margin-left: auto; margin-right: auto"/>
 
 
 
