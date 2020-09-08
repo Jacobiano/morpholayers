@@ -1,4 +1,7 @@
-# morpholayers
+<img src="https://github.com/Jacobiano/morpholayers/logo.png" alt="drawing" width="400px" style="display: block; margin-left: auto; margin-right: auto"/>
+
+
+
 Morphological Layers for Keras/Tensorflow2
 
 Several examples of using this library are available at:
