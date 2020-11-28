@@ -28,7 +28,8 @@ from tensorflow.python.keras.engine.input_spec import InputSpec
 from tensorflow.python.ops import nn
 from tensorflow.python.ops import math_ops
 from tensorflow.python.ops import array_ops
-from morpholayers.constraints import SEconstraint   
+from tensorflow.python.keras import activations
+from morpholayers.constraints import SEconstraint,ZeroToOne  
 import skimage.morphology as skm
 import scipy.ndimage.morphology as snm
 from skimage.draw import line
@@ -148,7 +149,6 @@ def internalgradient2d(x, st_element, strides, padding,rates=(1, 1)):
     #TODO CHECK STRIDES AND RATES
     x = x-tf.nn.erosion2d(x, st_element, (1, ) + strides + (1, ),padding.upper(),"NHWC",(1,)+rates+(1,))
     return x
-
 @tf.function
 def togglemapping2d(x, st_element, strides=(1,1), padding='same',rates=(1, 1),steps=5):
     """
@@ -209,6 +209,20 @@ def antierosion2d(x, st_element, strides, padding,rates=(1, 1)):
 #def tophatopening2D(x, st_element, strides, padding,rates=(1, 1)):
 #TODO RESIDUAL OPERATORS CONSIDERING STRIDES,PADDING and RATES
 
+
+class BiasLayer(tf.keras.layers.Layer):
+    def __init__(self, *args, **kwargs):
+        super(BiasLayer, self).__init__(*args, **kwargs)
+
+    def build(self, input_shape):
+        self.bias = self.add_weight('bias',
+                                    shape=input_shape[1:],
+                                    initializer='zeros',
+                                    trainable=True)
+    def call(self, x):
+        return x + self.bias
+
+
 """
 ==========================
 Operator by Reconstruction
@@ -255,7 +269,7 @@ Max/Min of Operators
 
 class Erosion2D(Layer):
     """
-    Minimum of Depthwise (Marginal) Erosion 2D  
+    Sum of Depthwise (Marginal) Erosion 2D on the third axes
     for now assuming channel last
 
     :param num_filters: the number of filters
@@ -271,8 +285,9 @@ class Erosion2D(Layer):
 
     """
     def __init__(self, num_filters, kernel_size, strides=(1, 1),
-                 padding='same', dilation_rate=(1,1), kernel_initializer='zeros',kernel_constraint=None,kernel_regularization=None,
-                 **kwargs):
+                 padding='same', dilation_rate=(1,1), activation=None,use_bias=False,kernel_initializer='Zeros',
+                 kernel_constraint=None,kernel_regularization=None,bias_initializer='zeros',bias_regularizer=None,
+                 bias_constraint=None,**kwargs):
         super(Erosion2D, self).__init__(**kwargs)
         self.num_filters = num_filters
         self.kernel_size = kernel_size
@@ -287,6 +302,11 @@ class Erosion2D(Layer):
         # for we are assuming channel last
         self.channel_axis = -1
 
+        self.bias_initializer = tf.keras.initializers.get(bias_initializer)
+        self.bias_regularizer = tf.keras.regularizers.get(bias_regularizer)
+        self.bias_constraint = tf.keras.constraints.get(bias_constraint)
+        self.activation = activations.get(activation)
+        self.use_bias = use_bias
         # self.output_dim = output_dim
 
     def build(self, input_shape):
@@ -301,23 +321,34 @@ class Erosion2D(Layer):
                                       initializer=self.kernel_initializer,
                                       name='kernel',constraint =self.kernel_constraint,regularizer=self.kernel_regularization)
 
+        if self.use_bias:
+            self.bias = self.add_weight(
+                name='bias',
+                shape=(self.num_filters,),
+                initializer=self.bias_initializer,
+                regularizer=self.bias_regularizer,
+                constraint=self.bias_constraint,
+                trainable=True,
+                dtype=self.dtype)
+        else:
+            self.bias = None
         # Be sure to call this at the end
         super(Erosion2D, self).build(input_shape)
 
     def call(self, x):
-        outputs = K.placeholder()
+        res=[]
         for i in range(self.num_filters):
             # erosion2d returns image of same size as x
-            # so taking min over channel_axis
-            out = K.min(
-                erosion2d(x, self.kernel[..., i],self.strides, self.padding),
-                axis=self.channel_axis, keepdims=True)
-            if i == 0:
-                outputs = out
-            else:
-                outputs = K.concatenate([outputs, out])
-
-        return outputs
+            # so taking max over channel_axis
+            res.append(tf.reduce_sum(erosion2d(x, self.kernel[..., i],self.strides, self.padding),axis=-1))
+        output= tf.stack(res,axis=-1)
+        if self.use_bias:
+            output=tf.keras.backend.bias_add(output, self.bias)
+        
+        if self.activation is not None:
+            return self.activation(output)
+        return output
+        
 
     def compute_output_shape(self, input_shape):
         # if self.data_format == 'channels_last':
@@ -349,7 +380,7 @@ class Erosion2D(Layer):
 
 class Dilation2D(Layer):
     """
-    Maximum of Depthwise (Marginal) Dilation 2D on the third axes
+    Sum of Depthwise (Marginal) Dilation 2D on the third axes
     for now assuming channel last
 
     :param num_filters: the number of filters
@@ -365,8 +396,9 @@ class Dilation2D(Layer):
 
     """
     def __init__(self, num_filters, kernel_size, strides=(1, 1),
-                 padding='same', dilation_rate=(1,1), kernel_initializer='glorot_uniform',kernel_constraint=None,kernel_regularization=None,
-                 **kwargs):
+                 padding='same', dilation_rate=(1,1), activation=None,use_bias=False,kernel_initializer='Zeros',
+                 kernel_constraint=None,kernel_regularization=None,bias_initializer='zeros',bias_regularizer=None,
+                 bias_constraint=None,**kwargs):
         super(Dilation2D, self).__init__(**kwargs)
         self.num_filters = num_filters
         self.kernel_size = kernel_size
@@ -381,6 +413,11 @@ class Dilation2D(Layer):
         # for we are assuming channel last
         self.channel_axis = -1
 
+        self.bias_initializer = tf.keras.initializers.get(bias_initializer)
+        self.bias_regularizer = tf.keras.regularizers.get(bias_regularizer)
+        self.bias_constraint = tf.keras.constraints.get(bias_constraint)
+        self.activation = activations.get(activation)
+        self.use_bias = use_bias
         # self.output_dim = output_dim
 
     def build(self, input_shape):
@@ -395,6 +432,17 @@ class Dilation2D(Layer):
                                       initializer=self.kernel_initializer,
                                       name='kernel',constraint =self.kernel_constraint,regularizer=self.kernel_regularization)
 
+        if self.use_bias:
+            self.bias = self.add_weight(
+                name='bias',
+                shape=(self.num_filters,),
+                initializer=self.bias_initializer,
+                regularizer=self.bias_regularizer,
+                constraint=self.bias_constraint,
+                trainable=True,
+                dtype=self.dtype)
+        else:
+            self.bias = None
         # Be sure to call this at the end
         super(Dilation2D, self).build(input_shape)
 
@@ -403,8 +451,15 @@ class Dilation2D(Layer):
         for i in range(self.num_filters):
             # erosion2d returns image of same size as x
             # so taking max over channel_axis
-            res.append(tf.reduce_max(dilation2d(x, self.kernel[..., i],self.strides, self.padding),axis=-1))
-        return tf.stack(res,axis=-1)
+            res.append(tf.reduce_sum(dilation2d(x, self.kernel[..., i],self.strides, self.padding),axis=-1))
+        output= tf.stack(res,axis=-1)
+        if self.use_bias:
+            output=tf.keras.backend.bias_add(output, self.bias)
+        
+        if self.activation is not None:
+            return self.activation(output)
+        return output
+        
 
     def compute_output_shape(self, input_shape):
         # if self.data_format == 'channels_last':
@@ -451,7 +506,9 @@ class IntegratorofOperator2D(Layer):
 
     """
     def __init__(self, num_filters, kernel_size, strides=(1, 1),
-                 padding='same', integrator=K.max, operator=dilation2d,dilation_rate=(1,1), kernel_initializer='glorot_uniform',kernel_constraint=None,kernel_regularization=None,
+                 padding='same', dilation_rate=(1,1), activation=None,use_bias=True,kernel_initializer='Zeros',
+                 kernel_constraint=None,kernel_regularization=None,bias_initializer='zeros',bias_regularizer=None,
+                 bias_constraint=None,integrator=K.sum, operator=dilation2d,
                  **kwargs):
         super(IntegratorofOperator2D, self).__init__(**kwargs)
         self.num_filters = num_filters
@@ -469,6 +526,11 @@ class IntegratorofOperator2D(Layer):
 
         # for we are assuming channel last
         self.channel_axis = -1
+        self.bias_initializer = tf.keras.initializers.get(bias_initializer)
+        self.bias_regularizer = tf.keras.regularizers.get(bias_regularizer)
+        self.bias_constraint = tf.keras.constraints.get(bias_constraint)
+        self.activation = activations.get(activation)
+        self.use_bias = use_bias
 
         # self.output_dim = output_dim
 
@@ -483,22 +545,31 @@ class IntegratorofOperator2D(Layer):
         self.kernel = self.add_weight(shape=kernel_shape,
                                       initializer=self.kernel_initializer,
                                       name='kernel',constraint =self.kernel_constraint,regularizer=self.kernel_regularization)
+        if self.use_bias:
+            self.bias = self.add_weight(
+                name='bias',
+                shape=(self.num_filters,),
+                initializer=self.bias_initializer,
+                regularizer=self.bias_regularizer,
+                constraint=self.bias_constraint,
+                trainable=True,
+                dtype=self.dtype)
+        else:
+            self.bias = None
 
-        # Be sure to call this at the end
         super(IntegratorofOperator2D, self).build(input_shape)
 
     def call(self, x):
-        outputs = K.placeholder()
+        res=[]
         for i in range(self.num_filters):
-            out = self.integrator(
-                self.operator(x, self.kernel[..., i],self.strides, self.padding),
-                axis=self.channel_axis, keepdims=True)
-            if i == 0:
-                outputs = out
-            else:
-                outputs = K.concatenate([outputs, out])
-
-        return outputs
+            res.append(self.integrator(self.operator(x, self.kernel[..., i],self.strides, self.padding),axis=self.channel_axis))
+        output= tf.stack(res,axis=-1)
+        #print('output.shape',output.shape)
+        if self.use_bias:
+            output=tf.keras.backend.bias_add(output, self.bias)
+        if self.activation is not None:
+            return self.activation(output)
+        return output
 
     def compute_output_shape(self, input_shape):
         space = input_shape[1:-1]
@@ -513,7 +584,6 @@ class IntegratorofOperator2D(Layer):
             new_space.append(new_dim)
 
         return (input_shape[0],) + tuple(new_space) + (self.num_filters,)
-
 
     def get_config(self):
         config = super().get_config().copy()
@@ -715,8 +785,9 @@ class DepthwiseOperator2D(Layer):
     '''
     Depthwise Operator 2D Layer: Depthwise Operator for now assuming channel last
     '''
-    def __init__(self, kernel_size,depth_multiplier=1, strides=(1, 1),padding='same', dilation_rate=(1,1), kernel_initializer='Zeros',
-    kernel_constraint=None,kernel_regularization=None,shared=False,operator=dilation2d,**kwargs):
+    def __init__(self, kernel_size,depth_multiplier=1, strides=(1, 1),padding='same', dilation_rate=(1,1),activation=None,
+               use_bias=True,kernel_initializer='Zeros',kernel_constraint=None,kernel_regularization=None,bias_initializer='zeros',bias_regularizer=None,
+               bias_constraint=None,shared=False,operator=dilation2d,**kwargs):
         super(DepthwiseOperator2D, self).__init__(**kwargs)
         self.kernel_size = kernel_size
         self.depth_multiplier= depth_multiplier
@@ -730,7 +801,11 @@ class DepthwiseOperator2D(Layer):
         self.channel_axis = -1
         self.shared=shared
         self.operator=operator
-
+        self.bias_initializer = tf.keras.initializers.get(bias_initializer)
+        self.bias_regularizer = tf.keras.regularizers.get(bias_regularizer)
+        self.bias_constraint = tf.keras.constraints.get(bias_constraint)
+        self.activation = activations.get(activation)
+        self.use_bias = use_bias
         # self.output_dim = output_dim
 
     def build(self, input_shape):
@@ -746,6 +821,20 @@ class DepthwiseOperator2D(Layer):
         self.kernel2D = self.add_weight(shape=kernel_shape,
                                       initializer=self.kernel_initializer,
                                       name='kernel2D',constraint =self.kernel_constraint,regularizer=self.kernel_regularization)
+
+
+
+        if self.use_bias:
+            self.bias = self.add_weight(
+                name='bias',
+                shape=(input_dim*self.depth_multiplier,),
+                initializer=self.bias_initializer,
+                regularizer=self.bias_regularizer,
+                constraint=self.bias_constraint,
+                trainable=True,
+                dtype=self.dtype)
+        else:
+            self.bias = None
         super(DepthwiseOperator2D, self).build(input_shape)
 
     def call(self, x):
@@ -758,7 +847,14 @@ class DepthwiseOperator2D(Layer):
             for di in range(self.depth_multiplier):
                 H=self.operator(x,self.kernel2D[:,:,:,di],strides=self.strides,padding=self.padding.upper(),rates=self.rates)
                 res.append(H)
-        return tf.concat(res,axis=-1)
+        output=tf.concat(res,axis=-1)
+        if self.use_bias:
+            output=tf.keras.backend.bias_add(output, self.bias)
+        
+        if self.activation is not None:
+            return self.activation(output)
+        return output
+
 
     def compute_output_shape(self, input_shape):
 
@@ -820,9 +916,11 @@ class DepthwiseDilation2D(Layer):
             kernel_shape = self.kernel_size + (self.depth_multiplier,)
         else:
             kernel_shape = self.kernel_size + (input_dim,self.depth_multiplier)
+        print(kernel_shape,'kernel_shape')
         self.kernel2D = self.add_weight(shape=kernel_shape,
                                       initializer=self.kernel_initializer,
                                       name='kernel2D',constraint =self.kernel_constraint,regularizer=self.kernel_regularization)
+        print(self.kernel2D)
         super(DepthwiseDilation2D, self).build(input_shape)
 
     def call(self, x):
@@ -949,14 +1047,17 @@ Separable Morphological Layers
 ==============================
 """
 
+#TODO CHECK SEPARABLE (Not coherent with definition)
 class SeparableDilation2D(Layer):
     '''
     Separable Dilation 2D Layer: First Depthwise Dilation follows by a Pointwise Dilation
     for now assuming channel last
     '''
+
+
     def __init__(self, num_filters, kernel_size, depth_multiplier=1,strides=(1, 1),
-                 padding='same', dilation_rate=(1,1), kernel_initializer='Zeros',kernel_constraint=None,kernel_regularization=None,shared=False,
-                 **kwargs):
+                 padding='same', dilation_rate=(1,1),activation=None,kernel_initializer='Zeros',
+                 kernel_constraint=None,kernel_regularization=None,shared=False,**kwargs):
         super(SeparableDilation2D, self).__init__(**kwargs)
         self.num_filters = num_filters
         self.kernel_size = kernel_size
@@ -1035,101 +1136,6 @@ class SeparableDilation2D(Layer):
             'strides': self.strides,
             'padding': self.padding,
             'dilation_rate': self.rates,
-        })
-        return config
-
-
-class SeparableOperator2D(Layer):
-    '''
-    Separable Operator 2D Layer: First Depthwise Dilation follows by a Pointwise Dilation
-    for now assuming channel last
-    '''
-    def __init__(self, num_filters, kernel_size, depth_multiplier=1,strides=(1, 1),
-                 padding='same', dilation_rate=(1,1), kernel_initializer='Zeros',kernel_constraint=None,kernel_regularization=None,shared=False,operator=dilation2d,
-                 integrator=tf.reduce_max,
-                 **kwargs):
-        super(SeparableOperator2D, self).__init__(**kwargs)
-        self.num_filters = num_filters
-        self.kernel_size = kernel_size
-        self.depth_multiplier= depth_multiplier
-        self.strides = strides
-        self.padding = padding
-        self.rates=dilation_rate
-        self.kernel_initializer = tf.keras.initializers.get(kernel_initializer)
-        self.kernel_constraint = tf.keras.constraints.get(kernel_constraint)
-        self.kernel_regularization = tf.keras.regularizers.get(kernel_regularization)
-        # for we are assuming channel last
-        self.channel_axis = -1
-        self.shared=shared
-        self.operator=operator
-        self.integrator=integrator
-
-        # self.output_dim = output_dim
-
-    def build(self, input_shape):
-        if input_shape[self.channel_axis] is None:
-            raise ValueError('The channel dimension of the inputs '
-                             'should be defined. Found `None`.')
-
-        input_dim = input_shape[self.channel_axis]
-        if self.shared:
-            kernel_shape = self.kernel_size + (self.num_filters,)
-        else:
-            kernel_shape = self.kernel_size + (input_dim,self.num_filters)
-        
-
-        self.kernel2D = self.add_weight(shape=kernel_shape,
-                                      initializer=self.kernel_initializer,
-                                      name='kernel2D',constraint =self.kernel_constraint,regularizer=self.kernel_regularization)
-        kernelDepth_shape = (input_dim,self.depth_multiplier) 
-
-        self.kernelDepth = self.add_weight(shape=kernelDepth_shape,
-                                      initializer=self.kernel_initializer,
-                                      name='kernelDepth',constraint =self.kernel_constraint,regularizer=self.kernel_regularization)
-        super(SeparableOperator2D, self).build(input_shape)
-
-    def call(self, x):
-        res=[]
-        if self.shared:
-            for ki in range(self.num_filters):
-                H=self.operator(x,tf.repeat(self.kernel2D[:,:,ki:(ki+1)],x.shape[-1],axis=2),strides=self.strides,padding=self.padding.upper(),rates=self.rates)
-                for i in range(self.depth_multiplier):
-                    #Pointwise Max-Plus Convolution
-                    res.append(self.integrator(self.kernelDepth[...,i]+H,axis=-1))
-        else:
-            for ki in range(self.num_filters):
-                H=self.operator(x,self.kernel2D[:,:,:,ki],strides=self.strides,padding=self.padding.upper(),rates=self.rates)
-                for i in range(self.depth_multiplier):
-                    #Pointwise Max-Plus Convolution
-                    res.append(self.integrator(self.kernelDepth[...,i]+H,axis=-1))
-        return tf.stack(res,axis=-1)
-
-    def compute_output_shape(self, input_shape):
-
-        space = input_shape[1:-1]
-        new_space = []
-        for i in range(len(space)):
-            new_dim = conv_utils.conv_output_length(
-                space[i],
-                self.kernel_size[i],
-                padding=self.padding,
-                stride=self.strides[i],
-                dilation=self.rates[i])
-            new_space.append(new_dim)
-
-        return (input_shape[0],) + tuple(new_space) + (self.num_filters*self.depth_multiplier,)
-
-    def get_config(self):
-        config = super().get_config().copy()
-        config.update({
-            'num_filters': self.num_filters,
-            'kernel_size': self.kernel_size,
-            'depth_multiplier': self.depth_multiplier,
-            'strides': self.strides,
-            'padding': self.padding,
-            'dilation_rate': self.rates,
-            'integrator': self.integrator,
-            'operator': self.operator,
         })
         return config
 
@@ -1391,99 +1397,6 @@ class BSDilation2D(Layer):
         })
         return config
 
-
-
-class BSOperator2D(Layer):
-    '''
-    Blueprint Separable Operator 2D Layer: First Pointwise Integrator follows by Depthwise Operator
-    for now assuming channel last
-    '''
-    def __init__(self, num_filters, kernel_size,strides=(1, 1),padding='same', dilation_rate=(1,1), kernel_initializer='Zeros',kernel_constraint=None,kernel_regularization=None,
-    shared=False,operator=dilation2d,integrator=tf.reduce_max,**kwargs):
-        super(BSOperator2D, self).__init__(**kwargs)
-        self.num_filters = num_filters
-        self.kernel_size = kernel_size
-        self.strides = strides
-        self.padding = padding
-        self.rates=dilation_rate
-        self.kernel_initializer = tf.keras.initializers.get(kernel_initializer)
-        self.kernel_constraint = tf.keras.constraints.get(kernel_constraint)
-        self.kernel_regularization = tf.keras.regularizers.get(kernel_regularization)
-        # for we are assuming channel last
-        self.channel_axis = -1
-        self.shared=shared
-        self.operator=operator
-        self.integrator=integrator
-
-        # self.output_dim = output_dim
-
-    def build(self, input_shape):
-        if input_shape[self.channel_axis] is None:
-            raise ValueError('The channel dimension of the inputs '
-                             'should be defined. Found `None`.')
-
-        input_dim = input_shape[self.channel_axis]
-
-        if self.shared:
-            kernel_shape = self.kernel_size + (1,)
-        else:
-            kernel_shape = self.kernel_size + (self.num_filters,)
-       
-        self.kernel2D = self.add_weight(shape=kernel_shape,
-                                      initializer=self.kernel_initializer,
-                                      name='kernel2D',constraint =self.kernel_constraint,regularizer=self.kernel_regularization)
-        kernelDepth_shape = (input_dim,self.num_filters) 
-
-        self.kernelDepth = self.add_weight(shape=kernelDepth_shape,
-                                      initializer=self.kernel_initializer,
-                                      name='kernelDepth',constraint =self.kernel_constraint,regularizer=self.kernel_regularization)
-        super(BSOperator2D, self).build(input_shape)
-
-    def call(self, x):
-        res=[]
-        for i in range(self.num_filters):
-                #Pointwise Max-Plus Convolution
-                res.append(self.integrator(x+self.kernelDepth[...,i],axis=-1))
-        res=tf.stack(res,axis=-1)
-        if self.shared:
-            return self.operator(res,tf.repeat(self.kernel2D[:,:,0:1],res.shape[-1],axis=2),strides=self.strides,padding=self.padding.upper(),rates=self.rates)
-        else:
-            return self.operator(res,self.kernel2D,strides=self.strides,padding=self.padding.upper(),rates=self.rates)
-
-
-    def compute_output_shape(self, input_shape):
-
-        space = input_shape[1:-1]
-        new_space = []
-        for i in range(len(space)):
-            new_dim = conv_utils.conv_output_length(
-                space[i],
-                self.kernel_size[i],
-                padding=self.padding,
-                stride=self.strides[i],
-                dilation=self.rates[i])
-            new_space.append(new_dim)
-
-        return (input_shape[0],) + tuple(new_space) + (self.num_filters*self.depth_multiplier,)
-
-    def get_config(self):
-        config = super().get_config().copy()
-        config.update({
-            'num_filters': self.num_filters,
-            'kernel_size': self.kernel_size,
-            'depth_multiplier': self.depth_multiplier,
-            'strides': self.strides,
-            'padding': self.padding,
-            'dilation_rate': self.rates,
-            'integrator': self.integrator,
-            'operator': self.operator,
-        })
-        return config
-
-
-
-
-
 class SeparableDilation3D(Layer):
     '''
     Separable Dilation 3D Layer
@@ -1571,15 +1484,16 @@ class SeparableDilation3D(Layer):
         return config
 
 
-
+#TODO: CONVERT TO KERNEL_CONSTRAINT?
 class DilationSE2D(Layer):
     '''
     Dilation SE 2D Layer
     for now assuming channel last
     '''
     def __init__(self, num_filters, structuring_element=skm.disk(1),strides=(1, 1),
-                 padding='same', dilation_rate=(1,1),kernel_initializer='Zeros',kernel_constraint=None,kernel_regularization=None,
-                 **kwargs):
+                 padding='same', dilation_rate=(1,1), activation=None,use_bias=False,kernel_initializer='Zeros',
+                 kernel_constraint=None,kernel_regularization=None,bias_initializer='zeros',bias_regularizer=None,
+                 bias_constraint=None,**kwargs):
         super(DilationSE2D, self).__init__(**kwargs)
         self.num_filters = num_filters
         self.kernel_size = structuring_element.shape
@@ -1588,10 +1502,17 @@ class DilationSE2D(Layer):
         self.rates=dilation_rate
 
         self.kernel_initializer = tf.keras.initializers.get(kernel_initializer)
-        self.kernel_constraint = tf.keras.constraints.get(kernel_constraint)
+        #self.kernel_constraint = tf.keras.constraints.get(kernel_constraint)
         self.kernel_constraint = SEconstraint(SE=structuring_element)
         self.kernel_regularization = tf.keras.regularizers.get(kernel_regularization)
         # for we are assuming channel last
+
+        self.bias_initializer = tf.keras.initializers.get(bias_initializer)
+        self.bias_regularizer = tf.keras.regularizers.get(bias_regularizer)
+        self.bias_constraint = tf.keras.constraints.get(bias_constraint)
+        self.activation = activations.get(activation)
+        self.use_bias = use_bias
+    
         self.channel_axis = -1
 
     def build(self, input_shape):
@@ -1606,17 +1527,33 @@ class DilationSE2D(Layer):
                                       initializer=self.kernel_initializer,
                                       name='kernel',constraint =self.kernel_constraint,regularizer=self.kernel_regularization)
 
-        # Be sure to call this at the end
+        if self.use_bias:
+            self.bias = self.add_weight(
+                name='bias',
+                shape=(self.num_filters,),
+                initializer=self.bias_initializer,
+                regularizer=self.bias_regularizer,
+                constraint=self.bias_constraint,
+                trainable=True,
+                dtype=self.dtype)
+        else:
+            self.bias = None
+
         super(DilationSE2D, self).build(input_shape)
 
     def call(self, x):
+        res=[]
         for i in range(self.num_filters):
-            out = dilation2d(x, self.kernel[..., i],self.strides, self.padding,self.rates)
-            if i == 0:
-                outputs = out
-            else:
-                outputs = K.concatenate([outputs, out])
-        return outputs
+            # erosion2d returns image of same size as x
+            # so taking max over channel_axis
+            res.append(tf.reduce_sum(dilation2d(x, self.kernel[..., i],self.strides, self.padding),axis=-1))
+        output= tf.stack(res,axis=-1)
+        if self.use_bias:
+            output=tf.keras.backend.bias_add(output, self.bias)
+        
+        if self.activation is not None:
+            return self.activation(output)
+        return output
 
     def compute_output_shape(self, input_shape):
         space = input_shape[1:-1]
@@ -1629,9 +1566,7 @@ class DilationSE2D(Layer):
                 stride=self.strides[i],
                 dilation=self.rates[i]) 
             new_space.append(new_dim)
-
-        return (input_shape[0],) + tuple(new_space) + (self.num_filters*input_shape[self.channel_axis],)
-
+        return (input_shape[0],) + tuple(new_space) + (self.num_filters,)
 
     def get_config(self):
         config = super().get_config().copy()
@@ -1829,7 +1764,7 @@ class QuadraticDilation2D(Layer):
         data[int(data.shape[0]/2),int(data.shape[1]/2)]=0
         #data=snm.distance_transform_edt(data)**2
         data=snm.distance_transform_edt(data)
-        data=(-(data/(4*self.scale))**2)
+        data=(-(data/(2*self.scale))**2) #TO CHECK EXPRESSIOn
         data = np.repeat(data[:, :, np.newaxis], input_dim, axis=2)
         data = np.repeat(data[:, :, :,np.newaxis], self.num_filters, axis=3)
         self.data=tf.convert_to_tensor(data, np.float32)
@@ -2181,82 +2116,14 @@ Special Structuring Elements
 ============================
 """
 
-class ErosionLines2D(Layer):
+class DepthwiseDilationLines2D(Layer):
     '''
-    Erosion Lines 2D Layer
+    Depthwise Dilation Lines 2D Layer
     for now assuming channel last
     '''
-    def __init__(self, kernel_size, strides=(1, 1),padding='same', dilation_rate=(1,1), kernel_initializer='zeros',kernel_constraint=None,kernel_regularization=None,
-                 **kwargs):
-        super(ErosionLines2D, self).__init__(**kwargs)
-        self.kernel_size = kernel_size
-        self.strides = strides
-        self.padding = padding
-        self.rates=dilation_rate
-        self.kernel_initializer = tf.keras.initializers.get(kernel_initializer)
-        self.kernel_constraint = tf.keras.constraints.get(kernel_constraint)
-        self.kernel_regularization = tf.keras.regularizers.get(kernel_regularization)
-        self.channel_axis = -1
-        
-    def build(self, input_shape):
-        #print('Dimension Input',input_shape)
-        self.mask = tf.Variable(initial_value=get_lines(self.kernel_size[0]),trainable=False)
-        if input_shape[self.channel_axis] is None:
-            raise ValueError('The channel dimension of the inputs '
-                             'should be defined. Found `None`.')
-
-        input_dim = input_shape[self.channel_axis]
-        self.kernel = self.add_weight(shape=self.mask.shape,
-                                      initializer=self.kernel_initializer,
-                                      name='kernel',constraint =self.kernel_constraint,regularizer=self.kernel_regularization)
-
-        # Be sure to call this at the end
-        super(ErosionLines2D, self).build(input_shape)
-
-    def call(self, x):
-        for i in range(x.shape[-1]):
-            for j in range(self.kernel.shape[-1]):
-                out = erosion2d(x[...,i:(i+1)], self.kernel[..., j:(j+1)]*self.mask[..., j:(j+1)],self.strides, self.padding,self.rates)
-                if (i == 0) and (j==0):
-                    outputs = out
-                else:
-                    outputs = K.concatenate([outputs, out])
-        return outputs
-
-    def compute_output_shape(self, input_shape):
-        space = input_shape[1:-1]
-        new_space = []
-        for i in range(len(space)):
-            new_dim = conv_utils.conv_output_length(
-                space[i],
-                self.kernel_size[i],
-                padding=self.padding,
-                stride=self.strides[i],
-                dilation=self.rates[i]) 
-            new_space.append(new_dim)
-
-        return (input_shape[0],) + tuple(new_space) + (self.kernel.shape[-1]*input_shape[self.channel_axis],)
-
-
-    def get_config(self):
-        config = super().get_config().copy()
-        config.update({
-            'kernel_size': self.kernel_size,
-            'strides': self.strides,
-            'padding': self.padding,
-            'dilation_rate': self.rates,
-            'mask': self.mask
-        })
-        return config
-
-class DilationLines2D(Layer):
-    '''
-    Dilation Lines 2D Layer
-    for now assuming channel last
-    '''
-    def __init__(self, kernel_size, strides=(1, 1),padding='same', dilation_rate=(1,1), kernel_initializer='zeros',kernel_constraint=None,kernel_regularization=None,
-                 **kwargs):
-        super(DilationLines2D, self).__init__(**kwargs)
+    def __init__(self, kernel_size, strides=(1, 1),padding='same', dilation_rate=(1,1),activation=None,use_bias=True,kernel_initializer='zeros',kernel_constraint=None,kernel_regularization=None,
+                 bias_initializer='zeros',bias_regularizer=None,bias_constraint=None,**kwargs):
+        super(DepthwiseDilationLines2D, self).__init__(**kwargs)
         self.kernel_size = kernel_size
         self.strides = strides
         self.padding = padding
@@ -2266,6 +2133,12 @@ class DilationLines2D(Layer):
         self.kernel_regularization = tf.keras.regularizers.get(kernel_regularization)
         #self.mask = tensorflow.Variable(initial_value=get_lines(self.kernel_size[0],input_dim=input_shape[-1]),trainable=False)
         self.channel_axis = -1
+
+        self.bias_initializer = tf.keras.initializers.get(bias_initializer)
+        self.bias_regularizer = tf.keras.regularizers.get(bias_regularizer)
+        self.bias_constraint = tf.keras.constraints.get(bias_constraint)
+        self.activation = activations.get(activation)
+        self.use_bias = use_bias
         #print('Dimension Input',input_shape)
         
     def build(self, input_shape):
@@ -2275,15 +2148,27 @@ class DilationLines2D(Layer):
             raise ValueError('The channel dimension of the inputs '
                              'should be defined. Found `None`.')
 
-        input_dim = input_shape[self.channel_axis]
+        #input_dim = input_shape[self.channel_axis]
         self.kernel = self.add_weight(shape=self.mask.shape,
                                       initializer=self.kernel_initializer,
                                       name='kernel',constraint =self.kernel_constraint,regularizer=self.kernel_regularization)
 
-        # Be sure to call this at the end
-        super(DilationLines2D, self).build(input_shape)
+        if self.use_bias:
+            self.bias = self.add_weight(
+                name='bias',
+                shape=(self.kernel.shape[-1]*input_shape[self.channel_axis],),
+                initializer=self.bias_initializer,
+                regularizer=self.bias_regularizer,
+                constraint=self.bias_constraint,
+                trainable=True,
+                dtype=self.dtype)
+        else:
+            self.bias = None
+        super(DepthwiseDilationLines2D, self).build(input_shape)
 
     def call(self, x):
+        #print('self.kernel.shape',self.kernel.shape)
+        #print('x.shape',x.shape)
         for i in range(x.shape[-1]):
             for j in range(self.kernel.shape[-1]):
                 out = dilation2d(x[...,i:(i+1)], self.kernel[..., j:(j+1)]*self.mask[..., j:(j+1)],self.strides, self.padding,self.rates)
@@ -2291,7 +2176,26 @@ class DilationLines2D(Layer):
                     outputs = out
                 else:
                     outputs = K.concatenate([outputs, out])
+        if self.use_bias:
+            outputs=tf.keras.backend.bias_add(outputs, self.bias)
+        
+        if self.activation is not None:
+            return self.activation(outputs)
         return outputs
+
+        #res=[]
+        #for i in range(self.num_filters):
+            # erosion2d returns image of same size as x
+            # so taking max over channel_axis
+        #    res.append(tf.reduce_sum(dilation2d(x, self.kernel[..., i],self.strides, self.padding),axis=-1))
+        #output= tf.stack(res,axis=-1)
+        #return output
+        # if self.use_bias:
+        #     output=tf.keras.backend.bias_add(output, self.bias)
+        
+        # if self.activation is not None:
+        #     return self.activation(output)
+        # return output
 
     def compute_output_shape(self, input_shape):
         space = input_shape[1:-1]
@@ -2433,7 +2337,7 @@ class QuadraticAverage2D(Layer):
         data[int(data.shape[0]/2),int(data.shape[1]/2)]=0
         #data=snm.distance_transform_edt(data)**2
         data=snm.distance_transform_edt(data)
-        data=(-(data/(4*self.scale))**2)
+        data=(-(data/(2*self.scale))**2)
         data = np.repeat(data[:, :, np.newaxis], input_dim, axis=2)
         data = np.repeat(data[:, :, :,np.newaxis], self.num_filters, axis=3)
         self.data=tf.convert_to_tensor(data, np.float32)
@@ -3120,3 +3024,233 @@ class MixedMaxMinPooling2D(Layer):
     }
     base_config = super(MixedMaxMinPooling2D, self).get_config()
     return dict(list(base_config.items()) + list(config.items()))
+
+
+class LasryLionsDE(Layer):
+   '''
+   Lasry Dilation 2D Layer
+   for now assuming channel last
+   '''
+   def __init__(self, num_filters, kernel_size, strides=(1, 1),
+                padding='same', dilation_rate=(1,1), erosion_rate = (1,1), bias_initializer=tf.keras.initializers.RandomUniform(minval=.75, maxval=1.25),bias_initializer_bis = tf.keras.initializers.RandomUniform(minval=0.5, maxval=.9), bias_constraint=None,bias_constraint_bis=ZeroToOne(),bias_regularization=None,bias_regularization_bis=None,scale=5,scale_bis=5,**kwargs):
+       super(LasryLionsDE, self).__init__(**kwargs)
+       self.num_filters = num_filters
+       self.kernel_size = kernel_size
+       self.strides = strides
+       self.padding = padding
+       self.rates=dilation_rate
+       self.rates_bis=erosion_rate
+       self.scale=scale
+       self.scale_bis=scale_bis
+       self.bias_initializer = tf.keras.initializers.get(bias_initializer)
+       self.bias_constraint = tf.keras.constraints.get(bias_constraint)
+       self.bias_regularization = tf.keras.regularizers.get(bias_regularization)        
+       self.bias_initializer_bis = tf.keras.initializers.get(bias_initializer_bis)
+       self.bias_constraint_bis = tf.keras.constraints.get(bias_constraint_bis)
+       self.bias_regularization_bis = tf.keras.regularizers.get(bias_regularization_bis)
+       # for we are assuming channel last
+       self.channel_axis = -1
+
+   def build(self, input_shape):
+       if input_shape[self.channel_axis] is None:
+           raise ValueError('The channel dimension of the inputs '
+                            'should be defined. Found `None`.')
+       input_dim = input_shape[self.channel_axis]
+       #pour dilation
+       data=np.ones(self.kernel_size)
+       data[int(data.shape[0]/2),int(data.shape[1]/2)]=0
+       #data=snm.distance_transform_edt(data)**2
+       data=snm.distance_transform_edt(data)
+
+       data1=(-(data/(4*self.scale))**2)       
+       data1 = np.repeat(data1[:, :, np.newaxis], input_dim, axis=2)
+       data1 = np.repeat(data1[:, :, :,np.newaxis], self.num_filters, axis=3)
+       self.data=tf.convert_to_tensor(data1, np.float32)
+
+       #data1_bis=(-(data/(4*self.scale_bis))**2)
+       #data1_bis = np.repeat(data1_bis[:, :, np.newaxis], input_dim, axis=2)
+       #data1_bis = np.repeat(data1_bis[:, :, :,np.newaxis], self.num_filters, axis=3)
+       #self.data_bis=tf.convert_to_tensor(data1_bis, np.float32)
+
+       self.bias=self.add_weight(shape=(input_dim,self.num_filters),initializer=self.bias_initializer,constraint =self.bias_constraint,regularizer=self.bias_regularization,trainable=True)
+       self.bias_bis=self.add_weight(shape=(input_dim,self.num_filters),initializer=self.bias_initializer_bis,constraint =self.bias_constraint_bis,regularizer=self.bias_regularization_bis,trainable=True)
+
+       super(LasryLionsDE, self).build(input_shape)        
+
+   def call(self, x):
+       kernel=tf.math.multiply(self.data, self.bias)
+       kernel_c=tf.math.multiply(self.data, self.bias*self.bias_bis)
+       for i in range(self.num_filters):
+           y = self.dilation2d(x, kernel_c[..., i],self.strides, self.padding,self.rates)
+           out = self.erosion2d(y, kernel[..., i],self.strides, self.padding,self.rates_bis)
+           if i == 0:
+               outputs = out
+           else:
+               outputs = K.concatenate([outputs, out])
+       return outputs
+
+   def compute_output_shape(self, input_shape):
+       space = input_shape[1:-1]
+       new_space = []
+       for i in range(len(space)):
+           new_dim = conv_utils.conv_output_length(
+               space[i],
+               self.kernel_size[i],
+               padding=self.padding,
+               stride=self.strides[i],
+               dilation=self.rates[i],
+               erosion=self.rates_bis[i]) 
+           new_space.append(new_dim)
+
+       return (input_shape[0],) + tuple(new_space) + (self.num_filters*input_shape[self.channel_axis],)
+
+
+   def get_config(self):
+       config = super().get_config().copy()
+       config.update({
+           'num_filters': self.num_filters,
+           'kernel_size': self.kernel_size,
+           'strides': self.strides,
+           'padding': self.padding,
+           'dilation_rate': self.rates,
+           'erosion_rate': self.rates_bis
+       })
+       return config
+
+
+class LasryLionsED(Layer):
+   '''
+   Lasry Erosion-Dilation 2D Layer
+   for now assuming channel last
+   '''
+   def __init__(self, num_filters, kernel_size, strides=(1, 1),
+                padding='same', dilation_rate=(1,1), erosion_rate = (1,1), bias_initializer=tf.keras.initializers.RandomUniform(minval=.75, maxval=1.25),bias_initializer_bis = tf.keras.initializers.RandomUniform(minval=0.5, maxval=.9), bias_constraint=None,bias_constraint_bis=ZeroToOne(),bias_regularization=None,bias_regularization_bis=None,scale=5,scale_bis=5,**kwargs):
+       super(LasryLionsED, self).__init__(**kwargs)
+       self.num_filters = num_filters
+       self.kernel_size = kernel_size
+       self.strides = strides
+       self.padding = padding
+       self.rates=dilation_rate
+       self.rates_bis=erosion_rate
+       self.scale=scale
+       self.scale_bis=scale_bis
+       self.bias_initializer = tf.keras.initializers.get(bias_initializer)
+       self.bias_constraint = tf.keras.constraints.get(bias_constraint)
+       self.bias_regularization = tf.keras.regularizers.get(bias_regularization)        
+       self.bias_initializer_bis = tf.keras.initializers.get(bias_initializer_bis)
+       self.bias_constraint_bis = tf.keras.constraints.get(bias_constraint_bis)
+       self.bias_regularization_bis = tf.keras.regularizers.get(bias_regularization_bis)
+       # for we are assuming channel last
+       self.channel_axis = -1
+
+   def build(self, input_shape):
+       if input_shape[self.channel_axis] is None:
+           raise ValueError('The channel dimension of the inputs '
+                            'should be defined. Found `None`.')
+       input_dim = input_shape[self.channel_axis]
+       #pour dilation
+       data=np.ones(self.kernel_size)
+       data[int(data.shape[0]/2),int(data.shape[1]/2)]=0
+       #data=snm.distance_transform_edt(data)**2
+       data=snm.distance_transform_edt(data)
+
+       data1=(-(data/(4*self.scale))**2)       
+       data1 = np.repeat(data1[:, :, np.newaxis], input_dim, axis=2)
+       data1 = np.repeat(data1[:, :, :,np.newaxis], self.num_filters, axis=3)
+       self.data=tf.convert_to_tensor(data1, np.float32)
+
+       #data1_bis=(-(data/(4*self.scale_bis))**2)
+       #data1_bis = np.repeat(data1_bis[:, :, np.newaxis], input_dim, axis=2)
+       #data1_bis = np.repeat(data1_bis[:, :, :,np.newaxis], self.num_filters, axis=3)
+       #self.data_bis=tf.convert_to_tensor(data1_bis, np.float32)
+
+       self.bias=self.add_weight(shape=(input_dim,self.num_filters),initializer=self.bias_initializer,constraint =self.bias_constraint,regularizer=self.bias_regularization,trainable=True)
+       self.bias_bis=self.add_weight(shape=(input_dim,self.num_filters),initializer=self.bias_initializer_bis,constraint =self.bias_constraint_bis,regularizer=self.bias_regularization_bis,trainable=True)
+
+       super(LasryLionsED, self).build(input_shape)        
+
+   def call(self, x):
+       kernel=tf.math.multiply(self.data, self.bias)
+       kernel_c=tf.math.multiply(self.data, self.bias*self.bias_bis)
+       for i in range(self.num_filters):
+           y = self.dilation2d(x, kernel_c[..., i],self.strides, self.padding,self.rates)
+           out = self.erosion2d(y, kernel[..., i],self.strides, self.padding,self.rates_bis)
+           if i == 0:
+               outputs = out
+           else:
+               outputs = K.concatenate([outputs, out])
+       return outputs
+
+   def compute_output_shape(self, input_shape):
+       space = input_shape[1:-1]
+       new_space = []
+       for i in range(len(space)):
+           new_dim = conv_utils.conv_output_length(
+               space[i],
+               self.kernel_size[i],
+               padding=self.padding,
+               stride=self.strides[i],
+               dilation=self.rates[i],
+               erosion=self.rates_bis[i]) 
+           new_space.append(new_dim)
+
+       return (input_shape[0],) + tuple(new_space) + (self.num_filters*input_shape[self.channel_axis],)
+
+
+   def get_config(self):
+       config = super().get_config().copy()
+       config.update({
+           'num_filters': self.num_filters,
+           'kernel_size': self.kernel_size,
+           'strides': self.strides,
+           'padding': self.padding,
+           'dilation_rate': self.rates,
+           'erosion_rate': self.rates_bis
+       })
+       return config
+
+
+"""
+==========================================
+Morphological Empirical Mode Decomposition
+==========================================
+"""
+
+def MorphoEMP2D(input_layer,num_filters,kernel_size,strides):
+    xP=Dilation2D(num_filters,kernel_size=kernel_size,strides=strides,kernel_initializer=MinusOnesZeroCenter(),trainable=False,padding='valid')(input_layer)
+    xd=Dilation2D(num_filters,kernel_size=kernel_size,strides=strides,kernel_initializer='Zeros',padding='valid')(input_layer)
+    xe=Erosion2D(num_filters,kernel_size=kernel_size,strides=strides,kernel_initializer='Zeros',padding='valid')(input_layer)
+    xc=Average()([xd,xe])
+    return subtract([xP,xc])
+
+def MorphoEMP2DShare(input_layer,num_filters,kernel_size,strides):
+    xP=Dilation2D(num_filters,kernel_size=kernel_size,strides=strides,kernel_initializer=MinusOnesZeroCenter(),trainable=False,padding='valid')(input_layer)
+    xc= MorphoAverage2D(num_filters,kernel_size=kernel_size,strides=strides,padding='valid')(input_layer)
+    return subtract([xP,xc])
+
+def MorphoEMD2DQuadratic(input_layer,num_filters,kernel_size,strides):
+    xP=Dilation2D(num_filters,kernel_size=kernel_size,strides=strides,kernel_initializer=MinusOnesZeroCenter(),trainable=False,padding='valid')(input_layer)
+    xd=QuadraticDilation2D(num_filters,kernel_size=kernel_size,strides=strides,padding='valid')(input_layer)
+    xe=QuadraticDilation2D(num_filters,kernel_size=kernel_size,strides=strides,padding='valid')(-input_layer)
+    xc=Average()([xd,-xe])
+    return subtract([xP,xc])
+
+def MorphoEMP2DQuadraticShare(input_layer,num_filters,kernel_size,strides):
+    xP=Dilation2D(num_filters,kernel_size=kernel_size,strides=strides,kernel_initializer=MinusOnesZeroCenter(),trainable=False,padding='valid')(input_layer)
+    xc=QuadraticAverage2D(num_filters,kernel_size=kernel_size,strides=strides,padding='valid')(input_layer)
+    return subtract([xP,xc])
+
+
+
+
+def SeparableOperator2D(x,num_filters,kernel_size,operator=dilation2d,integrator=tf.reduce_sum,strides=(1, 1),padding='same', dilation_rate=(1,1),kernel_initializer='Zeros',kernel_constraint=None,kernel_regularization=None,bias_initializer='zeros',bias_regularizer=None,
+                 bias_constraint=None,shared=False,trainable=True):
+    x=DepthwiseOperator2D(kernel_size=kernel_size,operator=operator,strides=strides,padding=padding, dilation_rate=dilation_rate,use_bias=False,kernel_initializer=kernel_initializer,kernel_constraint=kernel_constraint,kernel_regularization=kernel_regularization,shared=shared,trainable=trainable)(x)
+    x=IntegratorofOperator2D(num_filters=num_filters,kernel_size=(1,1),operator=operator,integrator=integrator,bias_initializer=bias_initializer,bias_regularizer=bias_regularizer,bias_constraint=bias_constraint)(x)
+    return x
+
+def BSOperator2D(x,num_filters,kernel_size,operator=dilation2d,integrator=tf.reduce_sum,strides=(1, 1),padding='same', dilation_rate=(1,1),kernel_initializer='Zeros',kernel_constraint=None,kernel_regularization=None,bias_initializer='zeros',bias_regularizer=None,
+                 bias_constraint=None,shared=False,trainable=True):
+    x=IntegratorofOperator2D(num_filters=num_filters,kernel_size=(1,1),operator=operator,integrator=integrator,use_bias=False)(x)
+    x=DepthwiseOperator2D(kernel_size=kernel_size,operator=operator,strides=strides,padding=padding, dilation_rate=dilation_rate,kernel_initializer=kernel_initializer,kernel_constraint=kernel_constraint,kernel_regularization=kernel_regularization,bias_initializer=bias_initializer,bias_regularizer=bias_regularizer,bias_constraint=bias_constraint,shared=shared,trainable=trainable)(x)
+    return x
