@@ -15,6 +15,50 @@ GLOBAL VARIABLE
 MIN_LATT=-1
 MAX_LATT=1
 
+
+@tf.custom_gradient
+def rounding_op1(x):
+    def grad(dy):
+        return dy
+    return tf.round(x*10)/10, grad
+
+@tf.custom_gradient
+def rounding_op2(x):
+    def grad(dy):
+        return dy
+    return tf.round(x*100)/100, grad
+
+@tf.custom_gradient
+def rounding_op3(x):
+    def grad(dy):
+        return dy
+    return tf.round(x*1000)/1000, grad
+
+@tf.custom_gradient
+def rounding_op4(x):
+    def grad(dy):
+        return dy
+    return tf.round(x*10000)/10000, grad
+
+class Rounding(Constraint):
+    #Constraint to NonPositive Values
+    def __init__(self,c=4):
+        self.c = c
+
+    def __call__(self, w):
+        if self.c==1:
+            return rounding_op1(w)
+        elif self.c==2:
+            return rounding_op2(w)
+        elif self.c==3:
+            return rounding_op3(w)
+        else:
+            #self.c==4:
+            return rounding_op4(w)
+
+    def get_config(self):
+        return {'c': self.c}
+
 class NonPositive(Constraint):
     """
     Constraint to NonPositive Values
@@ -50,6 +94,18 @@ class NonPositiveIncreasing(Constraint):
         return {'min_value': self.min_value,
                 'max_value': self.max_value}
 
+class ZeroToOne(Constraint):
+    #Constraint between 0 to 1 Values
+    def __init__(self):
+        self.min_value = 0.
+        self.max_value = 1.
+
+    def __call__(self, w):
+        return K.clip(w, self.min_value, self.max_value)
+
+    def get_config(self):
+        return {'min_value': self.min_value,
+                'max_value': self.max_value}
 
 class Lattice(Constraint):
     """
@@ -70,7 +126,6 @@ class Lattice(Constraint):
 class SEconstraint(Constraint):
     """
     Constraint any SE Shape
-    Only for square filters.
     """
     def __init__(self,SE=skm.disk(1)):
         self.min_value = MIN_LATT
