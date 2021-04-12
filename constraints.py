@@ -74,7 +74,7 @@ class NonPositive(Constraint):
         return {'min_value': self.min_value,
                 'max_value': self.max_value}
 
-class NonPositiveIncreasing(Constraint):
+class NonPositiveExtensive(Constraint):
     """
     Constraint to NonPositive and Center equal to zero
     """
@@ -83,7 +83,7 @@ class NonPositiveIncreasing(Constraint):
         self.max_value = MAX_LATT
 
     def __call__(self, w):
-        w = K.clip(w, self.min_value, self.max_value)
+        w = K.clip(w, self.min_value, 0)
         data = np.ones(w.shape)
         data[int(w.shape[0]/2),int(w.shape[1]/2),:,:]=0
         #data_tf = tf.convert_to_tensor(data, np.float32)
