@@ -501,7 +501,7 @@ class IntegratorofOperator2D(Layer):
     >>>from keras.models import Sequential,Model
     >>>from keras.layers import Input
     >>>xin=Input(shape=(28,28,3))
-    >>>x=IntegratorofOperator2D(num_filters=7,kernel_size=(5,5),opertor=dilation2d,integrator=K.max))(xin)
+    >>>x=IntegratorofOperator2D(num_filters=7,kernel_size=(5,5),operator=dilation2d,integrator=K.max))(xin)
     >>>model = Model(xin,x)
 
     """
