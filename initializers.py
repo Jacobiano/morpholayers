@@ -301,10 +301,13 @@ class SEinitializer(Initializer):
     """
     Initializer to a SE.
     """
-    def __init__(self, SE=None,minval=MIN_LATT):
+    def __init__(self, SE=None,minval=None:
       self.SE = SE
-      self.minval=MIN_LATT
-    
+      if minval==None:
+          self.minval=MIN_LATT
+      else:
+          self.minval=minval
+                 
     def __call__(self, shape, dtype=None):
       print('self.minval',self.minval)
       data = np.zeros(shape)
