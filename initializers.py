@@ -306,6 +306,7 @@ class SEinitializer(Initializer):
       self.minval=MIN_LATT
     
     def __call__(self, shape, dtype=None):
+      print('self.minval',self.minval)
       data = np.zeros(shape)
       for i in range(data.shape[2]):
         for j in range(data.shape[3]):
