@@ -301,12 +301,13 @@ class SEinitializer(Initializer):
     """
     Initializer to a SE.
     """
-    def __init__(self, SE=None):
+    def __init__(self, SE=None,minval=MIN_LATT):
       self.SE = SE
+      self.minval=MIN_LATT
     
     def __call__(self, shape, dtype=None):
       data = np.zeros(shape)
       for i in range(data.shape[2]):
         for j in range(data.shape[3]):
-          data[:,:,i,j]=self.SE
+          data[:,:,i,j]=self.SE+self.minval
       return tf.convert_to_tensor(data, np.float32)
