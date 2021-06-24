@@ -295,3 +295,18 @@ class Quadratic(Initializer):
     def get_config(self):
         return {'t_value': self.t_value,
                 'c_value': self.c_value}
+
+    
+class SEinitializer(Initializer):
+    """
+    Initializer to a SE.
+    """
+    def __init__(self, SE=None):
+      self.SE = SE
+    
+    def __call__(self, shape, dtype=None):
+      data = np.zeros(shape)
+      for i in range(data.shape[2]):
+        for j in range(data.shape[3]):
+          data[:,:,i,j]=self.SE
+      return tensorflow.convert_to_tensor(data, np.float32)
