@@ -301,7 +301,7 @@ class SEinitializer(Initializer):
     """
     Initializer to a SE.
     """
-    def __init__(self, SE=None,minval=None:
+    def __init__(self, SE=None,minval=None):
       self.SE = SE
       if minval==None:
           self.minval=MIN_LATT
