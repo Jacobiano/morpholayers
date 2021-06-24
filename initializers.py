@@ -309,4 +309,4 @@ class SEinitializer(Initializer):
       for i in range(data.shape[2]):
         for j in range(data.shape[3]):
           data[:,:,i,j]=self.SE
-      return tensorflow.convert_to_tensor(data, np.float32)
+      return tf.convert_to_tensor(data, np.float32)
