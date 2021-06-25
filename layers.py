@@ -230,8 +230,6 @@ def reconstruction_dilation(X,steps=NUM_ITER_REC):
     """
     for _ in range(steps):
         X[0]=tf.keras.layers.MaxPooling2D(pool_size=(3, 3),strides=(1,1),padding='same')(X[0])
-        #print(X[0].shape)
-        #print(X[1].shape)
         X[0]=tf.keras.layers.Minimum()([X[0],X[1]])
     return X[0]
 
@@ -246,8 +244,6 @@ def reconstruction_erosion(X,steps=NUM_ITER_REC):
     #Use in Keras: Lambda(reconstruction_erosion, name="reconstruction")([Mask,Image])
     for _ in range(steps):
         X[0]=MinPooling2D(pool_size=(3, 3),strides=(1,1),padding='same')(X[0])
-        #print(X[0].shape)
-        #print(X[1].shape)
         X[0]=tf.keras.layers.Maximum()([X[0],X[1]])
     return X[0]
 
@@ -907,11 +903,9 @@ class DepthwiseDilation2D(Layer):
             kernel_shape = self.kernel_size + (self.depth_multiplier,)
         else:
             kernel_shape = self.kernel_size + (input_dim,self.depth_multiplier)
-        print(kernel_shape,'kernel_shape')
         self.kernel2D = self.add_weight(shape=kernel_shape,
                                       initializer=self.kernel_initializer,
                                       name='kernel2D',constraint =self.kernel_constraint,regularizer=self.kernel_regularization)
-        print(self.kernel2D)
         super(DepthwiseDilation2D, self).build(input_shape)
 
     def call(self, x):
