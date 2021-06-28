@@ -24,5 +24,4 @@ Talks:
 - Morphological Scale-Spaces
 
 Practical Sessions:
-- 
-
+https://colab.research.google.com/drive/1Nr0fIPIIHGmXcwa3hZM5ijrZiZyWL0Yt?usp=sharing
