@@ -9,10 +9,10 @@ Several examples of this library are available at:
 [Examples](http://www.cmm.mines-paristech.fr/~velasco/morpholayers/)
 
 
-ECSIA mini-cours
+ECSIA mini-cours (Mathematical morphology meets Deep Learning)
 
-* Mathematical morphology meets Deep Learning:
 * Santiago VELASCO-FORERO, Samy BLUSSEAU, Mateus SANGALLI
+
 * [Centre de Morphologie Mathématique](http://www.cmm.mines-paristech.fr/)
 * MINES ParisTech, PSL Research University
 
