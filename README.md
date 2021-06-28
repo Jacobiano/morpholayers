@@ -7,3 +7,22 @@ The goal of morpholayers is to make the interactions between [mathematical morph
 
 Several examples of this library are available at:
 [Examples](http://www.cmm.mines-paristech.fr/~velasco/morpholayers/)
+
+
+ECSIA mini-cours
+
+Mathematical morphology meets Deep Learning:
+Santiago VELASCO-FORERO, Samy BLUSSEAU, Mateus SANGALLI
+Centre de Morphologie Mathématique 
+MINES ParisTech, PSL Research University
+
+Talks:
+- Introduction
+- Deep Learning in 15 minutes
+- Mathematical morphology: Learning simple operators
+- Depthwise Morphological Layers 
+- Morphological Scale-Spaces
+
+Practical Sessions:
+- 
+
