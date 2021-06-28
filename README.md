@@ -43,3 +43,5 @@ Tutorial 4: Improving Max-Pooling layers using Dilations
 Tutorial 5: Learning Additive Shift Equivariant Operators
 * https://colab.research.google.com/drive/1mzzqZa0n0ugpS0RJ1Ar1d8ZKA3-YQ3eI?usp=sharing
 
+Tutorial 6: Learning Scale-Equivariant Operators
+* https://colab.research.google.com/drive/1Jy7Z4LUJCUG86mVz0akSRGHq1aaCutSl?usp=sharing
