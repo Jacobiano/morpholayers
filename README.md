@@ -24,4 +24,10 @@ Talks:
 - Morphological Scale-Spaces
 
 Practical Sessions:
-https://colab.research.google.com/drive/1Nr0fIPIIHGmXcwa3hZM5ijrZiZyWL0Yt?usp=sharing
+Tutorial 0: Deep Learning in 15 minutes [https://colab.research.google.com/drive/1rnjLWgqgsZJO5n_g0YROg3CS3WIMYTUs?usp=sharing]
+
+Tutorial 1:
+
+Tutorial 2:
+
+Tutorial 3:
