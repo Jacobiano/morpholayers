@@ -822,6 +822,89 @@ class MinofDilations2D(Layer):
         for i in range(self.num_filters):
             # dilation2d returns image of same size as x
             # so taking max over channel_axis
+            out = dilation2d(x, self.kernel[..., i],self.strides, self.padding)
+            if i == 0:
+                outputs = out
+            else:
+                outputs = K.concatenate([outputs, out])
+        outputs = K.min(outputs,axis=-1, keepdims=True)
+
+        return outputs
+
+    def compute_output_shape(self, input_shape):
+        # if self.data_format == 'channels_last':
+        space = input_shape[1:-1]
+        new_space = []
+        for i in range(len(space)):
+            new_dim = conv_utils.conv_output_length(
+                space[i],
+                self.kernel_size[i],
+                padding=self.padding,
+                stride=self.strides[i],
+                dilation=self.rates[i])
+            new_space.append(new_dim)
+
+        return (input_shape[0],) + tuple(new_space) + (self.num_filters,)
+
+    def get_config(self):
+        config = super().get_config().copy()
+        config.update({
+            'num_filters': self.num_filters,
+            'kernel_size': self.kernel_size,
+            'strides': self.strides,
+            'padding': self.padding,
+            'dilation_rate': self.rates,
+        })
+        return config
+
+
+class MinofDilations2D_old(Layer):
+    """
+    Minimum of Dilations 2D Layer assuming channel last
+    
+    :param num_filters: the number of filters
+    :param kernel_size: kernel size used
+    
+    """
+    def __init__(self, num_filters, kernel_size, strides=(1, 1),
+                 padding='same', dilation_rate=(1,1), kernel_initializer='glorot_uniform',kernel_constraint=None,kernel_regularization=None,
+                 **kwargs):
+        super(MinofDilations2D, self).__init__(**kwargs)
+        self.num_filters = num_filters
+        self.kernel_size = kernel_size
+        self.strides = strides
+        self.padding = padding
+        self.rates=dilation_rate
+
+        self.kernel_initializer = tf.keras.initializers.get(kernel_initializer)
+        self.kernel_constraint = tf.keras.constraints.get(kernel_constraint)
+        self.kernel_regularization = tf.keras.regularizers.get(kernel_regularization)
+
+        # for we are assuming channel last
+        self.channel_axis = -1
+
+        # self.output_dim = output_dim
+
+    def build(self, input_shape):
+        if input_shape[self.channel_axis] is None:
+            raise ValueError('The channel dimension of the inputs '
+                             'should be defined. Found `None`.')
+
+        input_dim = input_shape[self.channel_axis]
+        kernel_shape = self.kernel_size + (input_dim, self.num_filters)
+
+        self.kernel = self.add_weight(shape=kernel_shape,
+                                      initializer=self.kernel_initializer,
+                                      name='kernel',constraint =self.kernel_constraint,regularizer=self.kernel_regularization)
+
+        # Be sure to call this at the end
+        super(MinofDilations2D, self).build(input_shape)
+
+    def call(self, x):
+        #outputs = K.placeholder()
+        for i in range(self.num_filters):
+            # dilation2d returns image of same size as x
+            # so taking max over channel_axis
             out = K.min(dilation2d(x, self.kernel[..., i],self.strides, self.padding),axis=self.channel_axis, keepdims=True)
             if i == 0:
                 outputs = out
@@ -855,6 +938,7 @@ class MinofDilations2D(Layer):
             'dilation_rate': self.rates,
         })
         return config
+    
 
 """
 ===========================
