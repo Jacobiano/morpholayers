@@ -13,7 +13,7 @@ GLOBAL VARIABLE
 ===============
 """
 MIN_LATT=-1
-MAX_LATT=1
+MAX_LATT=0
 
 
 @tf.custom_gradient
