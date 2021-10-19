@@ -280,7 +280,7 @@ def reconstruction_erosion_step(X):
     # geodesic erosion with X[0] as marker, and X[1] as mask
     X[0]=MinPooling2D(pool_size=(3, 3),strides=(1,1),padding='same')(X[0])
     X[0]=tf.keras.layers.Maximum()([X[0],X[1]])
-    return tf.cast(X[0], tf.double)
+    return X[0]
 
 def reconstruction_erosion(X,steps=None):
     """
