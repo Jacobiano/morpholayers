@@ -219,33 +219,92 @@ class BiasLayer(tf.keras.layers.Layer):
 Operator by Reconstruction
 ==========================
 """
+@tf.function
+def condition_equal(last,new,image):
+    return tf.math.logical_not(tf.reduce_all(tf.math.equal(last, new)))
 
-def reconstruction_dilation(X,steps=NUM_ITER_REC):
+
+@tf.function
+def update_dilation(last,new,mask):
+     return new, reconstruction_dilation_step([new, mask]), mask
+
+def reconstruction_dilation_step(X):
     """
-    K steps of reconstruction by dilation
+    1 step of reconstruction by dilation
     :X tensor: X[0] is the Mask and X[1] is the Image
     :param steps: number of steps (by default NUM_ITER_REC)
     :Example:
     >>>Lambda(reconstruction_dilation, name="reconstruction")([Mask,Image])
     """
-    for _ in range(steps):
-        X[0]=tf.keras.layers.MaxPooling2D(pool_size=(3, 3),strides=(1,1),padding='same')(X[0])
-        X[0]=tf.keras.layers.Minimum()([X[0],X[1]])
-    return X[0]
+    # perform a geodesic dilation with X[0] as marker, and X[1] as mask
+    X[0]=tf.keras.layers.MaxPooling2D(pool_size=(3, 3),strides=(1,1),padding='same')(X[0])
+    X[0]=tf.keras.layers.Minimum()([X[0],X[1]])
+    return tf.cast(X[0], tf.double)
 
-def reconstruction_erosion(X,steps=NUM_ITER_REC):
+def reconstruction_dilation(X,steps=None):
     """
-    K steps of reconstruction by dilation
+    Full reconstruction by dilation if steps=None, else
+    K steps reconstruction by dilation
+    :X tensor: X[0] is the Mask and X[1] is the Image
+    :param steps: number of steps (by default NUM_ITER_REC)
+    :Example:
+    >>>Lambda(reconstruction_dilation, name="reconstruction")([Mask,Image])
+    """
+    rec = X[0]
+    if steps is None:
+        #Full reconstruction by dilation
+        rec = reconstruction_dilation_step([rec, X[1]])
+        _, rec,_=tf.while_loop(condition_equal, 
+                               update_dilation, 
+                               [X[0], rec, X[1]])
+    else:
+        #K steps reconstruction by dilation
+        for _ in range(steps):
+            rec = reconstruction_dilation_step([rec, X[1]])
+    
+    return rec
+
+
+@tf.function
+def update_erosion(last,new,mask):
+     return new, reconstruction_erosion_step([new, mask]), mask
+
+def reconstruction_erosion_step(X):
+    """
+    1 step of reconstruction by erosion
+    :X tensor: X[0] is the Mask and X[1] is the Image
+    :param steps: number of steps (by default NUM_ITER_REC)
+    :Example:
+    >>>Lambda(reconstruction_dilation, name="reconstruction")([Mask,Image])
+    """
+    # geodesic erosion with X[0] as marker, and X[1] as mask
+    X[0]=MinPooling2D(pool_size=(3, 3),strides=(1,1),padding='same')(X[0])
+    X[0]=tf.keras.layers.Maximum()([X[0],X[1]])
+    return tf.cast(X[0], tf.double)
+
+def reconstruction_erosion(X,steps=None):
+    """
+    Full reconstruction by erosion if steps=None, else
+    K steps reconstruction by erosion
     :X tensor: X[0] is the Mask and X[1] is the Image
     :param steps: number of steps (by default NUM_ITER_REC)
     :Example:
     >>>Lambda(reconstruction_dilation, name="reconstruction")([Mask,Image])
     """
     #Use in Keras: Lambda(reconstruction_erosion, name="reconstruction")([Mask,Image])
-    for _ in range(steps):
-        X[0]=MinPooling2D(pool_size=(3, 3),strides=(1,1),padding='same')(X[0])
-        X[0]=tf.keras.layers.Maximum()([X[0],X[1]])
-    return X[0]
+    rec = X[0]
+    if steps is None:
+        #Full reconstruction by erosion
+        rec = reconstruction_erosion_step([rec, X[1]])
+        _, rec,_=tf.while_loop(condition_equal, 
+                               update_erosion, 
+                               [X[0], rec, X[1]])
+    else:
+        #K steps reconstruction by erosion
+        for _ in range(steps):
+            rec = reconstruction_erosion_step([rec, X[1]])
+    
+    return rec
 
 
 """
