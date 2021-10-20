@@ -226,9 +226,9 @@ def condition_equal(last,new,image):
 
 @tf.function
 def update_dilation(last,new,mask):
-     return new, reconstruction_dilation_step([new, mask]), mask
+     return new, geodesic_dilation_step([new, mask]), mask
 
-def reconstruction_dilation_step(X):
+def geodesic_dilation_step(X):
     """
     1 step of reconstruction by dilation
     :X tensor: X[0] is the Mask and X[1] is the Image
@@ -241,7 +241,7 @@ def reconstruction_dilation_step(X):
     X[0]=tf.keras.layers.Minimum()([X[0],X[1]])
     return X[0]
 
-def reconstruction_dilation(X,steps=None):
+def geodesic_dilation(X,steps=None):
     """
     Full reconstruction by dilation if steps=None, else
     K steps reconstruction by dilation
@@ -251,25 +251,31 @@ def reconstruction_dilation(X,steps=None):
     >>>Lambda(reconstruction_dilation, name="reconstruction")([Mask,Image])
     """
     rec = X[0]
-    if steps is None:
-        #Full reconstruction by dilation
-        rec = reconstruction_dilation_step([rec, X[1]])
-        _, rec,_=tf.while_loop(condition_equal, 
-                               update_dilation, 
-                               [X[0], rec, X[1]])
-    else:
-        #K steps reconstruction by dilation
-        for _ in range(steps):
-            rec = reconstruction_dilation_step([rec, X[1]])
-    
+    #Full reconstruction is steps==None by dilation, else: partial reconstruction
+    rec = geodesic_dilation_step([rec, X[1]])
+    _, rec,_=tf.while_loop(condition_equal, 
+                            update_dilation, 
+                            [X[0], rec, X[1]],
+                            maximum_iterations=steps)
+   
     return rec
+
+def reconstruction_dilation(X):
+    """
+    Full geodesic reconstruction by dilation, reaching idempotence
+    :X tensor: X[0] is the Mask and X[1] is the Image
+    :param steps: number of steps (by default NUM_ITER_REC)
+    :Example:
+    >>>Lambda(reconstruction_dilation, name="reconstruction")([Mask,Image])
+    """
+    return geodesic_dilation(X, steps=None)
 
 
 @tf.function
 def update_erosion(last,new,mask):
-     return new, reconstruction_erosion_step([new, mask]), mask
+     return new, geodesic_erosion_step([new, mask]), mask
 
-def reconstruction_erosion_step(X):
+def geodesic_erosion_step(X):
     """
     1 step of reconstruction by erosion
     :X tensor: X[0] is the Mask and X[1] is the Image
@@ -282,7 +288,7 @@ def reconstruction_erosion_step(X):
     X[0]=tf.keras.layers.Maximum()([X[0],X[1]])
     return X[0]
 
-def reconstruction_erosion(X,steps=None):
+def geodesic_erosion(X,steps=None):
     """
     Full reconstruction by erosion if steps=None, else
     K steps reconstruction by erosion
@@ -293,19 +299,24 @@ def reconstruction_erosion(X,steps=None):
     """
     #Use in Keras: Lambda(reconstruction_erosion, name="reconstruction")([Mask,Image])
     rec = X[0]
-    if steps is None:
-        #Full reconstruction by erosion
-        rec = reconstruction_erosion_step([rec, X[1]])
-        _, rec,_=tf.while_loop(condition_equal, 
-                               update_erosion, 
-                               [X[0], rec, X[1]])
-    else:
-        #K steps reconstruction by erosion
-        for _ in range(steps):
-            rec = reconstruction_erosion_step([rec, X[1]])
-    
+    #Full reconstruction by erosion is steps==None, else :partial reconstruction
+    rec = geodesic_erosion_step([rec, X[1]])
+    _, rec,_=tf.while_loop(condition_equal, 
+                            update_erosion, 
+                            [X[0], rec, X[1]],
+                            maximum_iterations=steps)
+   
     return rec
 
+def reconstruction_erosion(X):
+    """
+    Full geodesic reconstruction by erosion, reaching idempotence
+    :X tensor: X[0] is the Mask and X[1] is the Image
+    :param steps: number of steps (by default NUM_ITER_REC)
+    :Example:
+    >>>Lambda(reconstruction_dilation, name="reconstruction")([Mask,Image])
+    """
+    return geodesic_erosion(X, steps=None)
 
 """
 ====================
