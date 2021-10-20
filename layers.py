@@ -15,7 +15,7 @@ from tensorflow.keras import backend as K
 K.set_image_data_format('channels_last')
 from tensorflow.keras.layers import Layer
 from tensorflow.python.keras.utils import conv_utils
-from tensorflow.python.keras.engine.input_spec import InputSpec
+from tensorflow.keras.layers import InputSpec
 from tensorflow.python.ops import nn
 from tensorflow.python.ops import math_ops
 from tensorflow.python.ops import array_ops
