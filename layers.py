@@ -226,7 +226,7 @@ def condition_equal(last,new,image):
 
 @tf.function
 def update_dilation(last,new,mask):
-     return new, geodesic_dilation_step([new, mask]), mask
+     return [new, geodesic_dilation_step([new, mask]), mask]
 
 def geodesic_dilation_step(X):
     """
@@ -273,7 +273,7 @@ def reconstruction_dilation(X):
 
 @tf.function
 def update_erosion(last,new,mask):
-     return new, geodesic_erosion_step([new, mask]), mask
+     return [new, geodesic_erosion_step([new, mask]), mask]
 
 def geodesic_erosion_step(X):
     """
