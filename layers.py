@@ -228,19 +228,21 @@ def condition_equal(last,new,image):
 def update_dilation(last,new,mask):
      return [new, geodesic_dilation_step([new, mask]), mask]
 
+@tf.function
 def geodesic_dilation_step(X):
     """
     1 step of reconstruction by dilation
     :X tensor: X[0] is the Mask and X[1] is the Image
     :param steps: number of steps (by default NUM_ITER_REC)
     :Example:
-    >>>Lambda(reconstruction_dilation, name="reconstruction")([Mask,Image])
+    >>>Lambda(geodesic_dilation_step, name="reconstruction")([Mask,Image])
     """
     # perform a geodesic dilation with X[0] as marker, and X[1] as mask
     X[0]=tf.keras.layers.MaxPooling2D(pool_size=(3, 3),strides=(1,1),padding='same')(X[0])
     X[0]=tf.keras.layers.Minimum()([X[0],X[1]])
     return X[0]
 
+@tf.function
 def geodesic_dilation(X,steps=None):
     """
     Full reconstruction by dilation if steps=None, else
@@ -248,7 +250,7 @@ def geodesic_dilation(X,steps=None):
     :X tensor: X[0] is the Mask and X[1] is the Image
     :param steps: number of steps (by default NUM_ITER_REC)
     :Example:
-    >>>Lambda(reconstruction_dilation, name="reconstruction")([Mask,Image])
+    >>>Lambda(geodesic_dilation, name="reconstruction")([Mask,Image])
     """
     rec = X[0]
     #Full reconstruction is steps==None by dilation, else: partial reconstruction
@@ -260,6 +262,7 @@ def geodesic_dilation(X,steps=None):
    
     return rec
 
+@tf.function
 def reconstruction_dilation(X):
     """
     Full geodesic reconstruction by dilation, reaching idempotence
@@ -275,29 +278,30 @@ def reconstruction_dilation(X):
 def update_erosion(last,new,mask):
      return [new, geodesic_erosion_step([new, mask]), mask]
 
+@tf.function
 def geodesic_erosion_step(X):
     """
     1 step of reconstruction by erosion
     :X tensor: X[0] is the Mask and X[1] is the Image
-    :param steps: number of steps (by default NUM_ITER_REC)
     :Example:
-    >>>Lambda(reconstruction_dilation, name="reconstruction")([Mask,Image])
+    >>>Lambda(geodesic_erosion_step, name="reconstruction")([Mask,Image])
     """
     # geodesic erosion with X[0] as marker, and X[1] as mask
     X[0]=MinPooling2D(pool_size=(3, 3),strides=(1,1),padding='same')(X[0])
     X[0]=tf.keras.layers.Maximum()([X[0],X[1]])
     return X[0]
 
+@tf.function
 def geodesic_erosion(X,steps=None):
     """
     Full reconstruction by erosion if steps=None, else
     K steps reconstruction by erosion
     :X tensor: X[0] is the Mask and X[1] is the Image
-    :param steps: number of steps (by default NUM_ITER_REC)
+    :param steps: number of steps (by default None (Complete Reconstruction))
     :Example:
-    >>>Lambda(reconstruction_dilation, name="reconstruction")([Mask,Image])
+    >>>Lambda(geodesic_erosion, name="geodesic_erosion")([Mask,Image])
     """
-    #Use in Keras: Lambda(reconstruction_erosion, name="reconstruction")([Mask,Image])
+    #Use in Keras: Lambda(geodesic_erosion, name="reconstruction")([Mask,Image])
     rec = X[0]
     #Full reconstruction by erosion is steps==None, else :partial reconstruction
     rec = geodesic_erosion_step([rec, X[1]])
@@ -308,11 +312,12 @@ def geodesic_erosion(X,steps=None):
    
     return rec
 
+@tf.function
 def reconstruction_erosion(X):
     """
     Full geodesic reconstruction by erosion, reaching idempotence
     :X tensor: X[0] is the Mask and X[1] is the Image
-    :param steps: number of steps (by default NUM_ITER_REC)
+    :param steps: number of steps (by default None)
     :Example:
     >>>Lambda(reconstruction_dilation, name="reconstruction")([Mask,Image])
     """
@@ -328,7 +333,6 @@ def h_maxima_transform(X):
     """
     h-maxima transform of image X[1] with h=X[0]
     :X tensor: X[0] is h and X[1] is the Image
-    :param steps: number of steps (by default NUM_ITER_REC)
     :Example:
     >>>Lambda(h_maxima_transform, name="h-maxima")([h,Image])
     """
@@ -343,9 +347,8 @@ def h_minima_transform(X):
     """
     h-maxima transform of image X[1] with h=X[0]
     :X tensor: X[0] is h and X[1] is the Image
-    :param steps: number of steps (by default NUM_ITER_REC)
     :Example:
-    >>>Lambda(h_maxima_transform, name="h-maxima")([h,Image])
+    >>>Lambda(h_minima_transform, name="h-minima")([h,Image])
     """
     h = X[0]
     Mask = X[1]
@@ -358,9 +361,8 @@ def h_convex_transform(X):
     """
     h-convex transform of image X[1] with h=X[0]
     :X tensor: X[0] is h and X[1] is the Image
-    :param steps: number of steps (by default NUM_ITER_REC)
     :Example:
-    >>>Lambda(h_maxima_transform, name="h-maxima")([h,Image])
+    >>>Lambda(h_convex_transform, name="h_convex_transform")([h,Image])
     """
     h = X[0]
     Mask = X[1]
@@ -373,9 +375,8 @@ def h_concave_transform(X):
     """
     h-convex transform of image X[1] with h=X[0]
     :X tensor: X[0] is h and X[1] is the Image
-    :param steps: number of steps (by default NUM_ITER_REC)
     :Example:
-    >>>Lambda(h_maxima_transform, name="h-maxima")([h,Image])
+    >>>Lambda(h_concave_transform, name="h_concave_transform")([h,Image])
     """
     h = X[0]
     Mask = X[1]
@@ -389,9 +390,8 @@ def region_maxima_transform(X):
     region maxima transform of image X
     X range has to be [0, 1]
     :X tensor: X is the Image
-    :param steps: number of steps (by default NUM_ITER_REC)
     :Example:
-    >>>Lambda(h_maxima_transform, name="h-maxima")([h,Image])
+    >>>Lambda(region_maxima_transform, name="region_maxima_transform")([h,Image])
     """
     h = 1./255.
     return h_convex_transform([h, X])
@@ -399,12 +399,12 @@ def region_maxima_transform(X):
 @tf.function
 def region_minima_transform(X):
     """
-    region maxima transform of image X
+    region minima transform of image X
     X range has to be [0, 1]
     :X tensor: X is the Image
     :param steps: number of steps (by default NUM_ITER_REC)
     :Example:
-    >>>Lambda(h_maxima_transform, name="h-maxima")([h,Image])
+    >>>Lambda(region_minima_transform, name="region_minima_transform")([h,Image])
     """
     h = 1./255.
     return h_concave_transform([h, X])
@@ -417,19 +417,19 @@ def extended_maxima_transform(X):
     :X tensor: X is the Image
     :param steps: number of steps (by default NUM_ITER_REC)
     :Example:
-    >>>Lambda(h_maxima_transform, name="h-maxima")([h,Image])
+    >>>Lambda(extended_maxima_transform, name="extended_maxima_transform")([h,Image])
     """
     return region_maxima_transform(h_maxima_transform(X))
 
 @tf.function
 def extended_minima_transform(X):
     """
-    extended maxima transform of image X[1] with h=X[0]
+    extended minima transform of image X[1] with h=X[0]
     X range has to be [0, 1]
     :X tensor: X is the Image
     :param steps: number of steps (by default NUM_ITER_REC)
     :Example:
-    >>>Lambda(h_maxima_transform, name="h-maxima")([h,Image])
+    >>>Lambda(extended_minima_transform, name="extended_minima_transform")([h,Image])
     """
     return region_minima_transform(h_minima_transform(X))
 
