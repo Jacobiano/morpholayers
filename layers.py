@@ -328,14 +328,19 @@ def h_maxima_transform(X):
     """
     h-maxima transform of image X[1] with h=X[0]
     :X tensor: X[0] is h and X[1] is the Image
+               X[0] and X[1] are 4th order tensors of same shape
     :param steps: number of steps (by default NUM_ITER_REC)
     :Example:
     >>>Lambda(h_maxima_transform, name="h-maxima")([h,Image])
     """
     h = X[0]
     Mask = X[1]
-    Marker = Mask - h
-    HMAX = geodesic_dilation([Marker, Mask])
+    
+    h = tf.expand_dims(h, axis=1)
+    h = tf.expand_dims(h, axis=1)
+    h = tf.broadcast_to(h, tf.shape(Mask))
+    
+    HMAX = geodesic_dilation([Mask - h, Mask])
     return  HMAX
 
 @tf.function
@@ -343,14 +348,19 @@ def h_minima_transform(X):
     """
     h-maxima transform of image X[1] with h=X[0]
     :X tensor: X[0] is h and X[1] is the Image
+               X[0] and X[1] are 4th order tensors of same shape
     :param steps: number of steps (by default NUM_ITER_REC)
     :Example:
     >>>Lambda(h_maxima_transform, name="h-maxima")([h,Image])
     """
     h = X[0]
     Mask = X[1]
-    Marker = Mask + h
-    HMIN = geodesic_erosion([Marker, Mask])
+    
+    h = tf.expand_dims(h, axis=1)
+    h = tf.expand_dims(h, axis=1)
+    h = tf.broadcast_to(h, tf.shape(Mask))
+    
+    HMIN = geodesic_erosion([Mask + h, Mask])
     return  HMIN
 
 @tf.function
@@ -358,14 +368,19 @@ def h_convex_transform(X):
     """
     h-convex transform of image X[1] with h=X[0]
     :X tensor: X[0] is h and X[1] is the Image
+               X[0] and X[1] are 4th order tensors of same shape
     :param steps: number of steps (by default NUM_ITER_REC)
     :Example:
     >>>Lambda(h_maxima_transform, name="h-maxima")([h,Image])
     """
     h = X[0]
     Mask = X[1]
-    Marker = Mask - h
-    HCONVEX = Mask - geodesic_dilation([Marker, Mask])
+    
+    h = tf.expand_dims(h, axis=1)
+    h = tf.expand_dims(h, axis=1)
+    h = tf.broadcast_to(h, tf.shape(Mask))
+    
+    HCONVEX = Mask - geodesic_dilation([Mask - h, Mask])
     return  HCONVEX
 
 @tf.function
@@ -373,14 +388,14 @@ def h_concave_transform(X):
     """
     h-convex transform of image X[1] with h=X[0]
     :X tensor: X[0] is h and X[1] is the Image
+               X[0] and X[1] are 4th order tensors of same shape
     :param steps: number of steps (by default NUM_ITER_REC)
     :Example:
     >>>Lambda(h_maxima_transform, name="h-maxima")([h,Image])
     """
     h = X[0]
     Mask = X[1]
-    Marker = Mask + h
-    HCONCAVE = geodesic_erosion([Marker, Mask]) - Mask
+    HCONCAVE = geodesic_erosion([Mask + h, Mask]) - Mask
     return  HCONCAVE
 
 @tf.function
@@ -393,8 +408,7 @@ def region_maxima_transform(X):
     :Example:
     >>>Lambda(h_maxima_transform, name="h-maxima")([h,Image])
     """
-    h = 1./255.
-    return h_convex_transform([h, X])
+    return h_convex_transform([tf.convert_to_tensor([[1./255.]]), X])
 
 @tf.function
 def region_minima_transform(X):
@@ -407,7 +421,7 @@ def region_minima_transform(X):
     >>>Lambda(h_maxima_transform, name="h-maxima")([h,Image])
     """
     h = 1./255.
-    return h_concave_transform([h, X])
+    return h_concave_transform([tf.convert_to_tensor([[1./255.]]), X])
 
 @tf.function
 def extended_maxima_transform(X):
