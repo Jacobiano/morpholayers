@@ -319,6 +319,121 @@ def reconstruction_erosion(X):
     return geodesic_erosion(X, steps=None)
 
 """
+==============================
+Reconstruction based operators
+==============================
+"""
+@tf.function
+def h_maxima_transform(X):
+    """
+    h-maxima transform of image X[1] with h=X[0]
+    :X tensor: X[0] is h and X[1] is the Image
+    :param steps: number of steps (by default NUM_ITER_REC)
+    :Example:
+    >>>Lambda(h_maxima_transform, name="h-maxima")([h,Image])
+    """
+    h = X[0]
+    Mask = X[1]
+    Marker = Mask - h
+    HMAX = geodesic_dilation([Marker, Mask])
+    return  HMAX
+
+@tf.function
+def h_minima_transform(X):
+    """
+    h-maxima transform of image X[1] with h=X[0]
+    :X tensor: X[0] is h and X[1] is the Image
+    :param steps: number of steps (by default NUM_ITER_REC)
+    :Example:
+    >>>Lambda(h_maxima_transform, name="h-maxima")([h,Image])
+    """
+    h = X[0]
+    Mask = X[1]
+    Marker = Mask + h
+    HMIN = geodesic_erosion([Marker, Mask])
+    return  HMIN
+
+@tf.function
+def h_convex_transform(X):
+    """
+    h-convex transform of image X[1] with h=X[0]
+    :X tensor: X[0] is h and X[1] is the Image
+    :param steps: number of steps (by default NUM_ITER_REC)
+    :Example:
+    >>>Lambda(h_maxima_transform, name="h-maxima")([h,Image])
+    """
+    h = X[0]
+    Mask = X[1]
+    Marker = Mask - h
+    HCONVEX = Mask - geodesic_dilation([Marker, Mask])
+    return  HCONVEX
+
+@tf.function
+def h_concave_transform(X):
+    """
+    h-convex transform of image X[1] with h=X[0]
+    :X tensor: X[0] is h and X[1] is the Image
+    :param steps: number of steps (by default NUM_ITER_REC)
+    :Example:
+    >>>Lambda(h_maxima_transform, name="h-maxima")([h,Image])
+    """
+    h = X[0]
+    Mask = X[1]
+    Marker = Mask + h
+    HCONCAVE = geodesic_erosion([Marker, Mask]) - Mask
+    return  HCONCAVE
+
+@tf.function
+def region_maxima_transform(X):
+    """
+    region maxima transform of image X
+    X range has to be [0, 1]
+    :X tensor: X is the Image
+    :param steps: number of steps (by default NUM_ITER_REC)
+    :Example:
+    >>>Lambda(h_maxima_transform, name="h-maxima")([h,Image])
+    """
+    h = 1./255.
+    return h_convex_transform([h, X])
+
+@tf.function
+def region_minima_transform(X):
+    """
+    region maxima transform of image X
+    X range has to be [0, 1]
+    :X tensor: X is the Image
+    :param steps: number of steps (by default NUM_ITER_REC)
+    :Example:
+    >>>Lambda(h_maxima_transform, name="h-maxima")([h,Image])
+    """
+    h = 1./255.
+    return h_concave_transform([h, X])
+
+@tf.function
+def extended_maxima_transform(X):
+    """
+    extended maxima transform of image X[1] with h=X[0]
+    X range has to be [0, 1]
+    :X tensor: X is the Image
+    :param steps: number of steps (by default NUM_ITER_REC)
+    :Example:
+    >>>Lambda(h_maxima_transform, name="h-maxima")([h,Image])
+    """
+    return region_maxima_transform(h_maxima_transform(X))
+
+@tf.function
+def extended_minima_transform(X):
+    """
+    extended maxima transform of image X[1] with h=X[0]
+    X range has to be [0, 1]
+    :X tensor: X is the Image
+    :param steps: number of steps (by default NUM_ITER_REC)
+    :Example:
+    >>>Lambda(h_maxima_transform, name="h-maxima")([h,Image])
+    """
+    return region_minima_transform(h_minima_transform(X))
+
+"""
 ====================
 Max/Min of Operators
 ====================
