@@ -304,7 +304,7 @@ def geodesic_erosion(X,steps=None):
    
     return rec
 
-def reconstruction_erosion(X):
+def reconstruction_erosion(X,steps=None):
     """
     Full geodesic reconstruction by erosion, reaching idempotence
     :X tensor: X[0] is the Mask and X[1] is the Image
@@ -313,6 +313,43 @@ def reconstruction_erosion(X):
     >>>Lambda(reconstruction_dilation, name="reconstruction")([Mask,Image])
     """
     return geodesic_erosion(X, steps=None)
+
+@tf.function
+def leveling_iteration(X):
+    """
+    K steps of reconstruction by dilation
+    :X tensor: X[0] is the Mask and X[1] is the Image
+    :param steps: number of steps (by default NUM_ITER_REC)
+    :Example:
+    >>>Lambda(reconstruction_dilation, name="reconstruction")([Mask,Image])
+    """
+    Z=tf.keras.layers.MaxPooling2D(pool_size=(3, 3),strides=(1,1),padding='same')(X[0])
+    X[1]=tf.keras.layers.Minimum()([Z,X[1]])
+    return tf.keras.layers.Maximum()([-tf.keras.layers.MaxPooling2D(pool_size=(3, 3),strides=(1,1),padding='same')(-X[0]),X[1]])
+
+def update_leveling(last,new,mask):
+    return new,leveling_iteration([new, mask]),mask
+
+
+@tf.function
+def leveling(X,steps=None):
+    """
+    Perform Leveling from Marker
+    Inputs:
+    Marker (4D np.array) : marker chosen
+    I (4D np.array) : input image with shape (1, width, height, channels)
+    Output:
+    4D np.array, (1, widht, height, 1) which is the leveling
+    :Example:
+    >>>Lambda(leveling, name="leveling")([Mask,Image])
+    """
+    lev = leveling_iteration([X[0], X[1]])
+    _, lev,_=tf.while_loop(condition_equal,
+                                update_leveling,
+                                [X[0], lev, X[1]],
+                                maximum_iterations=steps)
+    return lev
+
 
 """
 ==============================
