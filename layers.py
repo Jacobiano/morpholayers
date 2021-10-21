@@ -334,8 +334,7 @@ def h_maxima_transform(X):
     """
     h = X[0]
     Mask = X[1]
-    Marker = Mask - h
-    HMAX = geodesic_dilation([Marker, Mask])
+    HMAX = geodesic_dilation([Mask - h, Mask])
     return  HMAX
 
 @tf.function
