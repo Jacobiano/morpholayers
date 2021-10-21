@@ -323,9 +323,7 @@ def leveling_iteration(X):
     :Example:
     >>>Lambda(reconstruction_dilation, name="reconstruction")([Mask,Image])
     """
-    Z=tf.keras.layers.MaxPooling2D(pool_size=(3, 3),strides=(1,1),padding='same')(X[0])
-    X[1]=tf.keras.layers.Minimum()([Z,X[1]])
-    return tf.keras.layers.Maximum()([-tf.keras.layers.MaxPooling2D(pool_size=(3, 3),strides=(1,1),padding='same')(-X[0]),X[1]])
+    return tf.keras.layers.Maximum()([-tf.keras.layers.MaxPooling2D(pool_size=(3, 3),strides=(1,1),padding='same')(-X[0]),tf.keras.layers.Minimum()([tf.keras.layers.MaxPooling2D(pool_size=(3, 3),strides=(1,1),padding='same')(X[0]),X[1]])])
 
 def update_leveling(last,new,mask):
     return new,leveling_iteration([new, mask]),mask
