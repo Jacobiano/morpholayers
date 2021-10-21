@@ -169,7 +169,7 @@ def togglemapping(X,steps=5):
     """
     for _ in range(steps):
         d=tf.keras.layers.MaxPooling2D(pool_size=(3, 3),strides=(1,1),padding='same')(X)
-        e=MinPooling2D(pool_size=(3, 3),strides=(1,1),padding='same')(X)
+        e=-tf.keras.layers.MaxPooling2D(pool_size=(3, 3),strides=(1,1),padding='same')(-X) #MinPooling
         Delta=tf.keras.layers.Minimum()([d-X,X-e])
         Mask=tf.cast(tf.less_equal(d-X,X-e),'float32')
         X=X+(Mask*Delta)
@@ -237,7 +237,7 @@ def geodesic_dilation_step(X):
     >>>Lambda(geodesic_dilation_step, name="reconstruction")([Mask,Image])
     """
     # perform a geodesic dilation with X[0] as marker, and X[1] as mask
-    return tf.keras.layers.Minimum()([MaxPooling2D(pool_size=(3, 3),strides=(1,1),padding='same')(X[0]),X[1]])
+    return tf.keras.layers.Minimum()([tf.keras.layers.MaxPooling2D(pool_size=(3, 3),strides=(1,1),padding='same')(X[0]),X[1]])
 
 @tf.function
 def geodesic_dilation(X,steps=None):
@@ -281,7 +281,7 @@ def geodesic_erosion_step(X):
     >>>Lambda(geodesic_erosion_step, name="reconstruction")([Mask,Image])
     """
     # geodesic erosion with X[0] as marker, and X[1] as mask
-    return tf.keras.layers.Maximum()([-MaxPooling2D(pool_size=(3, 3),strides=(1,1),padding='same')(-X[0]),X[1]])
+    return tf.keras.layers.Maximum()([-tf.keras.layers.MaxPooling2D(pool_size=(3, 3),strides=(1,1),padding='same')(-X[0]),X[1]])
 
 @tf.function
 def geodesic_erosion(X,steps=None):
