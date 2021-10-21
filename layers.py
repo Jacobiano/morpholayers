@@ -319,6 +319,27 @@ def reconstruction_erosion(X):
     return geodesic_erosion(X, steps=None)
 
 """
+==============================
+Reconstruction based operators
+==============================
+"""
+@tf.function
+def h_maxima_transform(X, steps=None):
+    """
+    h-maxima transform of image X[1] with h=X[0]
+    :X tensor: X[0] is h and X[1] is the Image
+    :param steps: number of steps (by default NUM_ITER_REC)
+    :Example:
+    >>>Lambda(h_maxima_transform, name="h-maxima")([h,Image])
+    """
+    h = X[0]
+    Mask = X[1]
+    Marker = Mask - h
+    HMAX = geodesic_dilation([Marker, Mask], steps=steps)
+    return  HMAX
+
+
+"""
 ====================
 Max/Min of Operators
 ====================
