@@ -339,6 +339,21 @@ def h_maxima_transform(X):
     return  HMAX
 
 @tf.function
+def h_minima_transform(X):
+    """
+    h-maxima transform of image X[1] with h=X[0]
+    :X tensor: X[0] is h and X[1] is the Image
+    :param steps: number of steps (by default NUM_ITER_REC)
+    :Example:
+    >>>Lambda(h_maxima_transform, name="h-maxima")([h,Image])
+    """
+    h = X[0]
+    Mask = X[1]
+    Marker = Mask + h
+    HMIN = geodesic_erosion([Marker, Mask])
+    return  HMIN
+
+@tf.function
 def h_convex_transform(X):
     """
     h-convex transform of image X[1] with h=X[0]
