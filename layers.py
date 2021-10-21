@@ -366,6 +366,18 @@ def region_maxima_transform(X):
     h = 1./255.
     return h_convex_transform([h, X])
 
+@tf.function
+def extended_maxima_transform(X):
+    """
+    extended maxima transform of image X[1] with h=X[0]
+    X range has to be [0, 1]
+    :X tensor: X is the Image
+    :param steps: number of steps (by default NUM_ITER_REC)
+    :Example:
+    >>>Lambda(h_maxima_transform, name="h-maxima")([h,Image])
+    """
+    return region_maxima_transform(h_maxima_transform(X))
+
 """
 ====================
 Max/Min of Operators
