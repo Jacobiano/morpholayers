@@ -324,7 +324,7 @@ Reconstruction based operators
 ==============================
 """
 @tf.function
-def h_maxima_transform(X, steps=None):
+def h_maxima_transform(X):
     """
     h-maxima transform of image X[1] with h=X[0]
     :X tensor: X[0] is h and X[1] is the Image
@@ -339,9 +339,9 @@ def h_maxima_transform(X, steps=None):
     return  HMAX
 
 @tf.function
-def h_convex_transform(X, steps=None):
+def h_convex_transform(X):
     """
-    h-maxima transform of image X[1] with h=X[0]
+    h-convex transform of image X[1] with h=X[0]
     :X tensor: X[0] is h and X[1] is the Image
     :param steps: number of steps (by default NUM_ITER_REC)
     :Example:
@@ -352,6 +352,19 @@ def h_convex_transform(X, steps=None):
     Marker = Mask - h
     HCONVEX = Mask - geodesic_dilation([Marker, Mask], steps=steps)
     return  HCONVEX
+
+@tf.function
+def region_maxima_transform(X):
+    """
+    region maxima transform of image X
+    X range has to be [0, 1]
+    :X tensor: X is the Image
+    :param steps: number of steps (by default NUM_ITER_REC)
+    :Example:
+    >>>Lambda(h_maxima_transform, name="h-maxima")([h,Image])
+    """
+    h = 1./255.
+    return h_convex_transform([h, X])
 
 """
 ====================
