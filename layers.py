@@ -335,7 +335,7 @@ def h_maxima_transform(X):
     h = X[0]
     Mask = X[1]
     Marker = Mask - h
-    HMAX = geodesic_dilation([Marker, Mask], steps=steps)
+    HMAX = geodesic_dilation([Marker, Mask])
     return  HMAX
 
 @tf.function
@@ -350,7 +350,7 @@ def h_convex_transform(X):
     h = X[0]
     Mask = X[1]
     Marker = Mask - h
-    HCONVEX = Mask - geodesic_dilation([Marker, Mask], steps=steps)
+    HCONVEX = Mask - geodesic_dilation([Marker, Mask])
     return  HCONVEX
 
 @tf.function
