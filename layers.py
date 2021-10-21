@@ -224,7 +224,6 @@ def condition_equal(last,new,image):
     return tf.math.logical_not(tf.reduce_all(tf.math.equal(last, new)))
 
 
-@tf.function
 def update_dilation(last,new,mask):
      return [new, geodesic_dilation_step([new, mask]), mask]
 
@@ -259,10 +258,8 @@ def geodesic_dilation(X,steps=None):
                             update_dilation, 
                             [X[0], rec, X[1]],
                             maximum_iterations=steps)
-   
     return rec
 
-@tf.function
 def reconstruction_dilation(X):
     """
     Full geodesic reconstruction by dilation, reaching idempotence
@@ -274,7 +271,6 @@ def reconstruction_dilation(X):
     return geodesic_dilation(X, steps=None)
 
 
-@tf.function
 def update_erosion(last,new,mask):
      return [new, geodesic_erosion_step([new, mask]), mask]
 
@@ -312,7 +308,6 @@ def geodesic_erosion(X,steps=None):
    
     return rec
 
-@tf.function
 def reconstruction_erosion(X):
     """
     Full geodesic reconstruction by erosion, reaching idempotence
