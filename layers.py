@@ -369,11 +369,6 @@ def h_maxima_transform(X):
     """
     h = X[0]
     Mask = X[1]
-    
-    h = tf.expand_dims(h, axis=1)
-    h = tf.expand_dims(h, axis=1)
-    h = tf.broadcast_to(h, tf.shape(Mask))
-    
     HMAX = geodesic_dilation([Mask - h, Mask])
     return  HMAX
 
@@ -393,10 +388,6 @@ def h_minima_transform(X):
     h = X[0]
     Mask = X[1]
     
-    h = tf.expand_dims(h, axis=1)
-    h = tf.expand_dims(h, axis=1)
-    h = tf.broadcast_to(h, tf.shape(Mask))
-    
     HMIN = geodesic_erosion([Mask + h, Mask])
     return  HMIN
 
@@ -415,11 +406,6 @@ def h_convex_transform(X):
     """
     h = X[0]
     Mask = X[1]
-    
-    h = tf.expand_dims(h, axis=1)
-    h = tf.expand_dims(h, axis=1)
-    h = tf.broadcast_to(h, tf.shape(Mask))
-    
     HCONVEX = Mask - geodesic_dilation([Mask - h, Mask])
     return  HCONVEX
 
