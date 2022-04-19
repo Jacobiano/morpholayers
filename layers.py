@@ -396,11 +396,8 @@ def h_convex_transform(X):
     """
     h-convex transform of image X[1] with h=X[0]
     :X tensor: X[0] is h and X[1] is the Image
-<<<<<<< HEAD
                X[0] and X[1] are 4th order tensors of same shape
     :param steps: number of steps (by default NUM_ITER_REC)
-=======
->>>>>>> 4b39194a19d7e8007595ed83ed8f48e6673830df
     :Example:
     >>>Lambda(h_convex_transform, name="h_convex_transform")([h,Image])
     """
@@ -414,11 +411,8 @@ def h_concave_transform(X):
     """
     h-convex transform of image X[1] with h=X[0]
     :X tensor: X[0] is h and X[1] is the Image
-<<<<<<< HEAD
                X[0] and X[1] are 4th order tensors of same shape
     :param steps: number of steps (by default NUM_ITER_REC)
-=======
->>>>>>> 4b39194a19d7e8007595ed83ed8f48e6673830df
     :Example:
     >>>Lambda(h_concave_transform, name="h_concave_transform")([h,Image])
     """
@@ -2996,26 +2990,25 @@ class InternalGradient2D(Layer):
 
 
 class ToggleMapping2D(Layer):
-       '''
-       ToggleMapping 2D Layer for now assuming channel last
-       '''
-       def __init__(self, num_filters, kernel_size, steps=5, strides=(1, 1),
-                    padding='same', kernel_initializer='Zeros', kernel_constraint=None, kernel_regularization=None,
-                    **kwargs)
-       super(ToggleMapping2D, self).__init__(**kwargs)
-       self.num_filters = num_filters
-       self.kernel_size = kernel_size
-       self.strides = strides
-       self.padding = padding
-       self.rates=(1,1)
-       self.steps=steps
-
-       self.kernel_initializer = tf.keras.initializers.get(kernel_initializer)
-       self.kernel_constraint = tf.keras.constraints.get(kernel_constraint)
-       self.kernel_regularization = tf.keras.regularizers.get(kernel_regularization)
-       self.channel_axis = -1
-       
-       def build(self, input_shape):
+    '''
+    ToggleMapping 2D Layer for now assuming channel last
+    '''
+    def __init__(self, num_filters, kernel_size, steps=5, strides=(1, 1),
+                 padding='same', kernel_initializer='Zeros', kernel_constraint=None, kernel_regularization=None,
+                 **kwargs)
+        super(ToggleMapping2D, self).__init__(**kwargs)
+        self.num_filters = num_filters
+        self.kernel_size = kernel_size
+        self.strides = strides
+        self.padding = padding
+        self.rates=(1,1)
+        self.steps=steps
+        self.kernel_initializer = tf.keras.initializers.get(kernel_initializer)
+        self.kernel_constraint = tf.keras.constraints.get(kernel_constraint)
+        self.kernel_regularization = tf.keras.regularizers.get(kernel_regularization)
+        self.channel_axis = -1
+        
+        def build(self, input_shape):
               if input_shape[self.channel_axis] is None:
                      raise ValueError('The channel dimension of the inputs '
                                       'should be defined. Found `None`.')
@@ -3026,8 +3019,8 @@ class ToggleMapping2D(Layer):
                                             initializer=self.kernel_initializer,
                                             name='kernel',constraint =self.kernel_constraint,regularizer=self.kernel_regularization)
               super(ToggleMapping2D, self).build(input_shape)
-        
-       def call(self, x):
+              
+        def call(self, x):
               for i in range(self.num_filters):
                      out = togglemapping2d(x, self.kernel[..., i],self.strides, self.padding,self.rates,self.steps)
                      if i == 0:
@@ -3035,7 +3028,7 @@ class ToggleMapping2D(Layer):
                      else:
                             outputs = K.concatenate([outputs, out])
                      return outputs
-       def compute_output_shape(self, input_shape):
+        def compute_output_shape(self, input_shape):
               space = input_shape[1:-1]
               new_space = []
               for i in range(len(space)):
@@ -3047,8 +3040,8 @@ class ToggleMapping2D(Layer):
                      dilation=self.rates[i]) 
               new_space.append(new_dim)
               return (input_shape[0],) + tuple(new_space) + (self.num_filters*input_shape[self.channel_axis],)
-       
-       def get_config(self):
+        
+        def get_config(self):
               config = super().get_config().copy()
               config.update({
                      'num_filters': self.num_filters,
@@ -3607,25 +3600,25 @@ def MorphoEMP2D(input_layer,num_filters,kernel_size,strides):
     xP=Dilation2D(num_filters,kernel_size=kernel_size,strides=strides,kernel_initializer=MinusOnesZeroCenter(),trainable=False,padding='valid')(input_layer)
     xd=Dilation2D(num_filters,kernel_size=kernel_size,strides=strides,kernel_initializer='Zeros',padding='valid')(input_layer)
     xe=Erosion2D(num_filters,kernel_size=kernel_size,strides=strides,kernel_initializer='Zeros',padding='valid')(input_layer)
-    xc=Average()([xd,xe])
-    return subtract([xP,xc])
+    xc=(xd+xe)/2
+    return xP-xc
 
 def MorphoEMP2DShare(input_layer,num_filters,kernel_size,strides):
     xP=Dilation2D(num_filters,kernel_size=kernel_size,strides=strides,kernel_initializer=MinusOnesZeroCenter(),trainable=False,padding='valid')(input_layer)
     xc= MorphoAverage2D(num_filters,kernel_size=kernel_size,strides=strides,padding='valid')(input_layer)
-    return subtract([xP,xc])
+    return xP-xc
 
 def MorphoEMD2DQuadratic(input_layer,num_filters,kernel_size,strides):
     xP=Dilation2D(num_filters,kernel_size=kernel_size,strides=strides,kernel_initializer=MinusOnesZeroCenter(),trainable=False,padding='valid')(input_layer)
     xd=QuadraticDilation2D(num_filters,kernel_size=kernel_size,strides=strides,padding='valid')(input_layer)
     xe=QuadraticDilation2D(num_filters,kernel_size=kernel_size,strides=strides,padding='valid')(-input_layer)
-    xc=Average()([xd,-xe])
-    return subtract([xP,xc])
+    xc=(xd-xe)/2
+    return xP-xc
 
 def MorphoEMP2DQuadraticShare(input_layer,num_filters,kernel_size,strides):
     xP=Dilation2D(num_filters,kernel_size=kernel_size,strides=strides,kernel_initializer=MinusOnesZeroCenter(),trainable=False,padding='valid')(input_layer)
     xc=QuadraticAverage2D(num_filters,kernel_size=kernel_size,strides=strides,padding='valid')(input_layer)
-    return subtract([xP,xc])
+    return xP-xc
 
 
 
