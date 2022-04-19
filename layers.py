@@ -2995,7 +2995,7 @@ class ToggleMapping2D(Layer):
     '''
     def __init__(self, num_filters, kernel_size, steps=5, strides=(1, 1),
                  padding='same', kernel_initializer='Zeros', kernel_constraint=None, kernel_regularization=None,
-                 **kwargs)
+                 **kwargs):
         super(ToggleMapping2D, self).__init__(**kwargs)
         self.num_filters = num_filters
         self.kernel_size = kernel_size
