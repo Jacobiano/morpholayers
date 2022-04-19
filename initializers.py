@@ -5,7 +5,7 @@ from tensorflow.keras.initializers import Initializer
 import skimage.morphology as skm
 import scipy.ndimage.morphology as snm
 MIN_LATT=-1
-MAX_LATT=1
+MAX_LATT=0
 NUM_ITER_REC=21 #Default value for number of iterations in  reconstruction operator.
 
 class MinusOnesZeroCenter(Initializer):
@@ -103,13 +103,13 @@ class MinusOnes(Initializer):
 
 class RandomLattice(Initializer):
     """
-    Initializer that generates tensors with a uniform distribution (MIN_LATT,-MIN_LATT).
+    Initializer that generates tensors with a uniform distribution (MIN_LATT,MAX_LATT).
     :param minval: A python scalar or a scalar tensor. Lower bound of the range of random values to generate.
     :param maxval: A python scalar or a scalar tensor. Upper bound of the range of random values to generate.  Defaults to 1 for float types.
     :param seed: A Python integer. Used to seed the random generator.
     """
 
-    def __init__(self, minval=MIN_LATT, maxval=-MIN_LATT, seed=None):
+    def __init__(self, minval=MIN_LATT, maxval=MAX_LATT, seed=None):
         self.minval = minval
         self.maxval = maxval
         self.seed = seed
@@ -129,7 +129,7 @@ class RandomLattice(Initializer):
         }
 
     
-class RandomNegativeLattice(Initializer):
+class RandomLatticewithZero(Initializer):
     """
     Initializer that generates tensors with a uniform distribution (MIN_LATT,-MIN_LATT).
     :param minval: A python scalar or a scalar tensor. Lower bound of the range of random values to generate.
@@ -137,67 +137,12 @@ class RandomNegativeLattice(Initializer):
     :param seed: A Python integer. Used to seed the random generator.
     """
 
-    def __init__(self, minval=MIN_LATT, maxval=-MIN_LATT, seed=None):
-        self.minval = minval
-        self.maxval = maxval
-        self.seed = seed
-
-    def __call__(self, shape, dtype=None):
-        data = -K.abs(K.random_uniform(shape, self.minval, self.maxval,
-                             dtype=dtype, seed=self.seed))
-        if self.seed is not None:
-            self.seed += 1
-        return  data
-
-    def get_config(self):
-        return {
-            'minval': self.minval,
-            'maxval': self.maxval,
-            'seed': self.seed,
-        }    
-    
-class RandomPositiveLattice(Initializer):
-    """
-    Initializer that generates tensors with a uniform distribution ABS(MIN_LATT,-MIN_LATT).
-    :param minval: A python scalar or a scalar tensor. Lower bound of the range of random values to generate.
-    :param maxval: A python scalar or a scalar tensor. Upper bound of the rangeof random values to generate.  Defaults to 1 for float types.
-    :param seed: A Python integer. Used to seed the random generator.
-    """
-
-    def __init__(self, minval=MIN_LATT, maxval=-MIN_LATT, seed=None):
-        self.minval = minval
-        self.maxval = maxval
-        self.seed = seed
-
-    def __call__(self, shape, dtype=None):
-        data = K.abs(K.random_uniform(shape, self.minval, self.maxval,
-                             dtype=dtype, seed=self.seed))
-        if self.seed is not None:
-            self.seed += 1
-        return  data
-
-    def get_config(self):
-        return {
-            'minval': self.minval,
-            'maxval': self.maxval,
-            'seed': self.seed,
-        }    
-
-    
-class RandomwithZeroLattice(Initializer):
-    """
-    Initializer that generates tensors with a uniform distribution (MIN_LATT,-MIN_LATT).
-    :param minval: A python scalar or a scalar tensor. Lower bound of the range of random values to generate.
-    :param maxval: A python scalar or a scalar tensor. Upper bound of the range of random values to generate.  Defaults to 1 for float types.
-    :param seed: A Python integer. Used to seed the random generator.
-    """
-
-    def __init__(self, minval=MIN_LATT, maxval=-MIN_LATT):
+    def __init__(self, minval=MIN_LATT, maxval=MAX_LATT):
         self.minval = minval
         self.maxval = maxval
 
     def __call__(self, shape, dtype=None):
-        data = (np.random.random(shape)*(self.maxval-self.minval))+self.minval
+        data = K.random_uniform(shape, self.minval, self.maxval,dtype=dtype, seed=self.seed)
         data[int(shape[0]/2),int(shape[1]/2),:,:]=0
         return tf.convert_to_tensor(data, np.float32)
 
@@ -207,73 +152,6 @@ class RandomwithZeroLattice(Initializer):
             'maxval': self.maxval,
         } 
     
-class RandomwithMaxLattice(Initializer):
-    """
-    Initializer that generates tensors with a uniform distribution (MIN_LATT,-MIN_LATT).
-
-    :param minval: A python scalar or a scalar tensor. Lower bound of the range of random values to generate.
-    :param maxval: A python scalar or a scalar tensor. Upper bound of the range of random values to generate.  Defaults to 1 for float types.
-    :param seed: A Python integer. Used to seed the random generator.
-
-    """
-    def __init__(self, minval=MIN_LATT, maxval=-MIN_LATT):
-        self.minval = minval
-        self.maxval = maxval
-
-    def __call__(self, shape, dtype=None):
-        data = (np.random.random(shape)*(self.maxval-self.minval))+self.minval
-        data[int(shape[0]/2),int(shape[1]/2),:,:]=self.maxval
-        return tf.convert_to_tensor(data, np.float32)
-
-    def get_config(self):
-        return {
-            'minval': self.minval,
-            'maxval': self.maxval,
-        }  
-    
-class RandomwithMinLattice(Initializer):
-    """
-    Initializer that generates tensors with a uniform distribution (MIN_LATT,-MIN_LATT).
-    :minval: A python scalar or a scalar tensor. Lower bound of the range of random values to generate.
-    :maxval: A python scalar or a scalar tensor. Upper bound of the range of random values to generate.  Defaults to 1 for float types.
-    :seed: A Python integer. Used to seed the random generator.
-    """
-
-    def __init__(self, minval=MIN_LATT, maxval=-MIN_LATT):
-        self.minval = minval
-        self.maxval = maxval
-
-    def __call__(self, shape, dtype=None):
-        data = (np.random.random(shape)*(self.maxval-self.minval))+self.minval
-        data[int(shape[0]/2),int(shape[1]/2),:,:]=self.minval
-        return tf.convert_to_tensor(data, np.float32)
-
-    def get_config(self):
-        return {
-            'minval': self.minval,
-            'maxval': self.maxval,
-        } 
-    
-class RandomNegativewithZeroLattice(Initializer):
-    """
-    Initializer that generates tensors with a uniform distribution (MIN_LATT,-MIN_LATT).
-    :minval: A python scalar or a scalar tensor. Lower bound of the range of random values to generate.
-    :maxval: A python scalar or a scalar tensor. Upper bound of the range of random values to generate.  Defaults to 1 for float types.
-    :seed: A Python integer. Used to seed the random generator.
-    """
-
-    def __init__(self, minval=MIN_LATT, maxval=-MIN_LATT):
-        self.minval = minval
-
-    def __call__(self, shape, dtype=None):
-        data = np.abs(np.random.random(shape))*self.minval
-        data[int(shape[0]/2),int(shape[1]/2),:,:]=0
-        return tf.convert_to_tensor(data, np.float32)
-
-    def get_config(self):
-        return {
-            'minval': self.minval,
-        }     
     
 class Quadratic(Initializer):
     """
