@@ -140,6 +140,20 @@ def internalgradient2d(x, st_element, strides, padding,rates=(1, 1)):
     #TODO CHECK STRIDES AND RATES
     x = x-tf.nn.erosion2d(x, st_element, (1, ) + strides + (1, ),padding.upper(),"NHWC",(1,)+rates+(1,))
     return x
+
+@tf.function
+def externalgradient2d(x, st_element, strides, padding,rates=(1, 1)):
+    """
+    External Gradient Operator
+    :param st_element: Nonflat structuring element
+    :strides: strides are only applied in second operator (erosion)
+    :padding: padding as classical convolutional layers
+    :rates: rates are only applied in second operator (erosion)
+    """
+    #TODO CHECK STRIDES AND RATES
+    x = tf.nn.dilation2d(x, st_element, (1, ) + strides + (1, ),padding.upper(),"NHWC",(1,)+rates+(1,))-x
+    return x
+
 @tf.function
 def togglemapping2d(x, st_element, strides=(1,1), padding='same',rates=(1, 1),steps=5):
     """
@@ -2988,6 +3002,72 @@ class InternalGradient2D(Layer):
         })
         return config
 
+class ExternalGradient2D(Layer):
+    '''
+    External Morphological Gradient 2D Layer for now assuming channel last
+    '''
+    def __init__(self, num_filters, kernel_size, strides=(1, 1),
+                 padding='same', dilation_rate=(1,1),kernel_initializer='Zeros',kernel_constraint=None,kernel_regularization=None,
+                 **kwargs):
+        super(ExternalGradient2D, self).__init__(**kwargs)
+        self.num_filters = num_filters
+        self.kernel_size = kernel_size
+        self.strides = strides
+        self.padding = padding
+        self.rates=dilation_rate
+
+        self.kernel_initializer = tf.keras.initializers.get(kernel_initializer)
+        self.kernel_constraint = tf.keras.constraints.get(kernel_constraint)
+        self.kernel_regularization = tf.keras.regularizers.get(kernel_regularization)
+        self.channel_axis = -1
+
+    def build(self, input_shape):
+        if input_shape[self.channel_axis] is None:
+            raise ValueError('The channel dimension of the inputs '
+                             'should be defined. Found `None`.')
+
+        input_dim = input_shape[self.channel_axis]
+        kernel_shape = self.kernel_size + (input_dim, self.num_filters)
+
+        self.kernel = self.add_weight(shape=kernel_shape,
+                                      initializer=self.kernel_initializer,
+                                      name='kernel',constraint =self.kernel_constraint,regularizer=self.kernel_regularization)
+
+        super(ExternalGradient2D, self).build(input_shape)
+
+    def call(self, x):
+        for i in range(self.num_filters):
+            out = externalgradient2d(x, self.kernel[..., i],self.strides, self.padding,self.rates)
+            if i == 0:
+                outputs = out
+            else:
+                outputs = K.concatenate([outputs, out])
+        return outputs
+
+    def compute_output_shape(self, input_shape):
+        space = input_shape[1:-1]
+        new_space = []
+        for i in range(len(space)):
+            new_dim = conv_utils.conv_output_length(
+                space[i],
+                self.kernel_size[i],
+                padding=self.padding,
+                stride=self.strides[i],
+                dilation=self.rates[i]) 
+            new_space.append(new_dim)
+
+        return (input_shape[0],) + tuple(new_space) + (self.num_filters*input_shape[self.channel_axis],)
+
+    def get_config(self):
+        config = super().get_config().copy()
+        config.update({
+            'num_filters': self.num_filters,
+            'kernel_size': self.kernel_size,
+            'strides': self.strides,
+            'padding': self.padding,
+            'dilation_rate': self.rates,
+        })
+        return config
 
 class ToggleMapping2D(Layer):
     '''
