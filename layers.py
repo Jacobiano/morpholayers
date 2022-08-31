@@ -373,11 +373,8 @@ def h_maxima_transform(X):
     """
     h-maxima transform of image X[1] with h=X[0]
     :X tensor: X[0] is h and X[1] is the Image
-<<<<<<< HEAD
                X[0] and X[1] are 4th order tensors of same shape
     :param steps: number of steps (by default NUM_ITER_REC)
-=======
->>>>>>> 4b39194a19d7e8007595ed83ed8f48e6673830df
     :Example:
     >>>Lambda(h_maxima_transform, name="h-maxima")([h,Image])
     """
@@ -391,11 +388,8 @@ def h_minima_transform(X):
     """
     h-maxima transform of image X[1] with h=X[0]
     :X tensor: X[0] is h and X[1] is the Image
-<<<<<<< HEAD
                X[0] and X[1] are 4th order tensors of same shape
     :param steps: number of steps (by default NUM_ITER_REC)
-=======
->>>>>>> 4b39194a19d7e8007595ed83ed8f48e6673830df
     :Example:
     >>>Lambda(h_minima_transform, name="h-minima")([h,Image])
     """
