@@ -372,7 +372,7 @@ def morphological_distance(X,steps=None):
     count=X
     new=X
     _,D=tf.while_loop(condition_nonzero, update_distance, [new,count], maximum_iterations=steps)
-    return tf.math.reduce_max(D,axis=[1,2,3])-D
+    return tf.math.reduce_max(D,keepdims=True,axis=[1,2,3])-D
 
 
 @tf.function
