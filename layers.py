@@ -31,8 +31,6 @@ GLOBAL VARIABLE
 ===============
 """
 
-NUM_ITER_REC=21 #Default value for number of iterations in  reconstruction operator.
-
 """
 =========
 GET_LINES
@@ -341,6 +339,40 @@ def leveling_iteration(X):
 
 def update_leveling(last,new,mask):
     return new,leveling_iteration([new, mask]),mask
+
+
+@tf.function
+def condition_nonzero(new,count):
+    return tf.math.logical_not(tf.reduce_all(tf.math.not_equal(count, 0.)))
+
+@tf.function
+def update_distance(new,count):
+    return distance_step([new,count])
+
+@tf.function
+def distance_step(X):
+    """
+    One step of morphological distance by dilation
+    X tensor: X[0] is the object and X[1] is temporal distance
+    """
+    # perform a geodesic dilation with X[0] as marker, and X[1] as mask
+    Z=tf.keras.layers.MaxPooling2D(pool_size=(3, 3),strides=(1,1),padding='same')(X[0])
+    return [Z,Z+X[1]]
+
+@tf.function
+def morphological_distance(X,steps=None):
+    """
+    Morphological Distance Transform if steps=None, else
+    K steps morphological Distance
+    :X tensor: X[0] is a binary image (The method stops when there are no values equal to zero.)
+    :param steps: number of steps (None means iterate util non-zero values))
+    :Example:
+    >>>Lambda(morphological_distance, name="distance transform")(Image)
+    """
+    count=X
+    new=X
+    _,D=tf.while_loop(condition_nonzero, update_distance, [new,count], maximum_iterations=steps)
+    return tf.math.reduce_max(D,axis=[1,2,3])-D
 
 
 @tf.function
