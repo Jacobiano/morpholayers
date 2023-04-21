@@ -10,7 +10,7 @@ GLOBAL VARIABLE
 MIN_LATT=-1
 
 class L1L2Lattice(Regularizer):
-    """Regularizer for L1 and L2 regularization in a lattice.
+    """Regularizer for L1 and L2 regularization in a lattice. Computing L1/L2 distance to MIN_LATT
 
     # Arguments
         l1: Float; L1 regularization factor.

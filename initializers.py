@@ -4,9 +4,10 @@ from tensorflow.keras import backend as K
 from tensorflow.keras.initializers import Initializer
 import skimage.morphology as skm
 import scipy.ndimage.morphology as snm
+
+
 MIN_LATT=-1
 MAX_LATT=0
-NUM_ITER_REC=21 #Default value for number of iterations in  reconstruction operator.
 
 class MinusOnesZeroCenter(Initializer):
     """
