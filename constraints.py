@@ -5,8 +5,6 @@ from tensorflow.keras import backend as K
 import skimage.morphology as skm
 import scipy.ndimage.morphology as snm
 
-
-
 """
 ===============
 GLOBAL VARIABLE
@@ -14,7 +12,6 @@ GLOBAL VARIABLE
 """
 MIN_LATT=-1
 MAX_LATT=0
-
 
 @tf.custom_gradient
 def rounding_op1(x):
@@ -41,7 +38,7 @@ def rounding_op4(x):
     return tf.round(x*10000)/10000, grad
 
 class Rounding(Constraint):
-    #Constraint to NonPositive Values
+    #Using Constraint to Round values
     def __init__(self,c=4):
         self.c = c
 
