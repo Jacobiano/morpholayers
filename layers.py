@@ -21,6 +21,7 @@ from tensorflow.python.ops import math_ops
 from tensorflow.python.ops import array_ops
 from tensorflow.python.keras import activations
 from morpholayers.constraints import SEconstraint,ZeroToOne  
+from morpholayers.initializers import MinusOnesZeroCenter 
 import skimage.morphology as skm
 import scipy.ndimage.morphology as snm
 from skimage.draw import line
@@ -3217,25 +3218,6 @@ class MinPooling2D(Layer):
         data_format=conv_utils.convert_data_format(self.data_format, 4))
     return outputs
 
-  def compute_output_shape(self, input_shape):
-    input_shape = tensor_shape.TensorShape(input_shape).as_list()
-    if self.data_format == 'channels_first':
-      rows = input_shape[2]
-      cols = input_shape[3]
-    else:
-      rows = input_shape[1]
-      cols = input_shape[2]
-    rows = conv_utils.conv_output_length(rows, self.pool_size[0], self.padding,
-                                         self.strides[0])
-    cols = conv_utils.conv_output_length(cols, self.pool_size[1], self.padding,
-                                         self.strides[1])
-    if self.data_format == 'channels_first':
-      return tensor_shape.TensorShape(
-          [input_shape[0], input_shape[1], rows, cols])
-    else:
-      return tensor_shape.TensorShape(
-          [input_shape[0], rows, cols, input_shape[3]])
-
   def get_config(self):
     config = {
         'pool_size': self.pool_size,
@@ -3302,25 +3284,6 @@ class GradPooling2D(Layer):
         padding=self.padding.upper(),
         data_format=conv_utils.convert_data_format(self.data_format, 4))
     return outputs
-
-  def compute_output_shape(self, input_shape):
-    input_shape = tensor_shape.TensorShape(input_shape).as_list()
-    if self.data_format == 'channels_first':
-      rows = input_shape[2]
-      cols = input_shape[3]
-    else:
-      rows = input_shape[1]
-      cols = input_shape[2]
-    rows = conv_utils.conv_output_length(rows, self.pool_size[0], self.padding,
-                                         self.strides[0])
-    cols = conv_utils.conv_output_length(cols, self.pool_size[1], self.padding,
-                                         self.strides[1])
-    if self.data_format == 'channels_first':
-      return tensor_shape.TensorShape(
-          [input_shape[0], input_shape[1], rows, cols])
-    else:
-      return tensor_shape.TensorShape(
-          [input_shape[0], rows, cols, input_shape[3]])
 
   def get_config(self):
     config = {
@@ -3393,25 +3356,6 @@ class MixedPooling2D(Layer):
         data_format=conv_utils.convert_data_format(self.data_format, 4)) 
     return output
 
-  def compute_output_shape(self, input_shape):
-    input_shape = tensor_shape.TensorShape(input_shape).as_list()
-    if self.data_format == 'channels_first':
-      rows = input_shape[2]
-      cols = input_shape[3]
-    else:
-      rows = input_shape[1]
-      cols = input_shape[2]
-    rows = conv_utils.conv_output_length(rows, self.pool_size[0], self.padding,
-                                         self.strides[0])
-    cols = conv_utils.conv_output_length(cols, self.pool_size[1], self.padding,
-                                         self.strides[1])
-    if self.data_format == 'channels_first':
-      return tensor_shape.TensorShape(
-          [input_shape[0], input_shape[1], rows, cols])
-    else:
-      return tensor_shape.TensorShape(
-          [input_shape[0], rows, cols, input_shape[3]])
-
   def get_config(self):
     config = {
         'pool_size': self.pool_size,
@@ -3481,25 +3425,6 @@ class MixedMaxMinPooling2D(Layer):
         padding=self.padding.upper(),
         data_format=conv_utils.convert_data_format(self.data_format, 4)) 
     return output
-
-  def compute_output_shape(self, input_shape):
-    input_shape = tensor_shape.TensorShape(input_shape).as_list()
-    if self.data_format == 'channels_first':
-      rows = input_shape[2]
-      cols = input_shape[3]
-    else:
-      rows = input_shape[1]
-      cols = input_shape[2]
-    rows = conv_utils.conv_output_length(rows, self.pool_size[0], self.padding,
-                                         self.strides[0])
-    cols = conv_utils.conv_output_length(cols, self.pool_size[1], self.padding,
-                                         self.strides[1])
-    if self.data_format == 'channels_first':
-      return tensor_shape.TensorShape(
-          [input_shape[0], input_shape[1], rows, cols])
-    else:
-      return tensor_shape.TensorShape(
-          [input_shape[0], rows, cols, input_shape[3]])
 
   def get_config(self):
     config = {
