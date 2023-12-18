@@ -51,19 +51,25 @@ def leveling_iteration(X):
 
 @keras.saving.register_keras_serializable()
 class DilationLayer(Layer):
-    def __init__(self, filters=32,kernel_size=(3,3),strides=(1,1),padding='SAME'):
+    def __init__(self, filters=32,kernel_size=(3,3),strides=(1,1),padding='SAME',kernel_initializer='Zeros'):
         super().__init__()
         self.filters = filters
         self.kernel_size = kernel_size
         self.kernel_length = kernel_size[0]*kernel_size[1]
         self.strides = strides
         self.padding = padding
+        if kernel_initializer=='Zeros':
+            self.initializer=keras.initializers.Zeros()
+        elif kernel_initializer=='Uniform':
+            self.initializer=keras.initializers.RandomUniform(-1,0)
+        else:
+            self.initializer=kernel_initializer
 
     # Create the state of the layer (weights)
     def build(self, input_shape):
         self.kernel = self.add_weight(
             shape=(1, 1, 1, self.kernel_length*input_shape[-1], self.filters),
-            initializer="glorot_uniform",
+            initializer=self.initializer,
             trainable=True,
             name="kernel",
             )
@@ -78,19 +84,25 @@ class DilationLayer(Layer):
         
 @keras.saving.register_keras_serializable()
 class ErosionLayer(Layer):
-    def __init__(self, filters=32,kernel_size=(3,3),strides=(1,1),padding='SAME'):
+    def __init__(self, filters=32,kernel_size=(3,3),strides=(1,1),padding='SAME',kernel_initializer='Zeros'):
         super().__init__()
         self.filters = filters
         self.kernel_size = kernel_size
         self.kernel_length = kernel_size[0]*kernel_size[1]
         self.strides = strides
         self.padding = padding
+        if kernel_initializer=='Zeros':
+            self.initializer=keras.initializers.Zeros()
+        elif kernel_initializer=='Uniform':
+            self.initializer=keras.initializers.RandomUniform(-1,0)
+        else:
+            self.initializer=kernel_initializer
 
     # Create the state of the layer (weights)
     def build(self, input_shape):
         self.kernel = self.add_weight(
             shape=(1, 1, 1, self.kernel_length*input_shape[-1], self.filters),
-            initializer="glorot_uniform",
+            initializer=self.initializer,
             trainable=True,
             name="kernel",
             )
@@ -141,6 +153,44 @@ class MarginalDilationLayer(Layer):
   
     def get_config(self):
         return {"filters": self.filters}
+        
+
+class MarginalSortLayer(Layer):
+    def __init__(self, filters=32,kernel_size=(3,3),strides=(1,1),padding='SAME',kernel_initializer='Zeros'):
+        super().__init__()
+        self.filters = filters
+        self.kernel_size = kernel_size
+        self.kernel_length = kernel_size[0]*kernel_size[1]
+        self.strides = strides
+        self.padding = padding
+        
+        if kernel_initializer=='Zeros':
+            self.initializer=keras.initializers.Zeros()
+        elif kernel_initializer=='Uniform':
+            self.initializer=keras.initializers.RandomUniform(-1,0)
+        else:
+            self.initializer=kernel_initializer
+
+    # Create the state of the layer (weights)
+    def build(self, input_shape):
+        self.channels=input_shape[-1]
+        self.kernel = self.add_weight(
+            shape=(1, 1, 1, self.kernel_length,input_shape[-1], self.filters),
+            initializer=self.initializer,
+            trainable=True,
+            name="kernel",
+            )
+    # Defines the computation
+    def call(self, inputs):
+        patches = keras.ops.image.extract_patches(inputs, self.kernel_size,padding=self.padding,strides=self.strides)
+        b, h, w, c = keras.ops.shape(patches)
+        patches = keras.ops.reshape(patches, (b, h, w, self.kernel_length,self.channels))
+        return keras.ops.sort(keras.ops.expand_dims(patches,axis=-1) + self.kernel,axis=3)
+  
+    def get_config(self):
+        return {"filters": self.filters}
+        
+
 
 
 @keras.saving.register_keras_serializable()
