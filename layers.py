@@ -216,6 +216,91 @@ class MarginalMEMLayer(Layer):
         return {"filters": self.filters}
 
 
+@keras.saving.register_keras_serializable()
+class MarginalClosingLayer(Layer):
+    def __init__(self, filters=32,kernel_size=(3,3),strides=(1,1),padding='SAME',kernel_initializer='Zeros'):
+        super().__init__()
+        self.filters = filters
+        self.kernel_size = kernel_size
+        self.kernel_length = kernel_size[0]*kernel_size[1]
+        self.strides = strides
+        self.padding = padding
+        if kernel_initializer=='Zeros':
+            self.initializer=keras.initializers.Zeros()
+        elif kernel_initializer=='Uniform':
+            self.initializer=keras.initializers.RandomUniform(-1,0)
+        else:
+            self.initializer=kernel_initializer
+
+    # Create the state of the layer (weights)
+    def build(self, input_shape):
+        self.channels=input_shape[-1]
+        self.kernel = self.add_weight(
+            shape=(1, 1, 1, self.kernel_length,input_shape[-1], self.filters),
+            initializer=self.initializer,
+            trainable=True,
+            name="kernel",
+            )
+    # Defines the computation
+    def call(self, inputs):
+        #Dilation
+        patches = keras.ops.image.extract_patches(inputs, self.kernel_size,padding=self.padding,strides=self.strides)
+        b, h, w, c = keras.ops.shape(patches)
+        patches = keras.ops.reshape(patches, (b, h, w, self.kernel_length,self.channels))
+        res=keras.ops.max(keras.ops.expand_dims(patches,axis=-1) + keras.ops.flip(self.kernel,axis=3),axis=3)[:,:,:,:,0]
+        #Erosion
+        patches = keras.ops.image.extract_patches(res, self.kernel_size,padding=self.padding,strides=self.strides)
+        b, h, w, c = keras.ops.shape(patches)
+        patches = keras.ops.reshape(patches, (b, h, w, self.kernel_length,self.channels))
+        res=keras.ops.min(keras.ops.expand_dims(patches,axis=-1) - self.kernel,axis=3)[:,:,:,:,0]
+        return res
+
+    def get_config(self):
+        return {"filters": self.filters}
+        
+        
+@keras.saving.register_keras_serializable()
+class MarginalOpeningLayer(Layer):
+    def __init__(self, filters=32,kernel_size=(3,3),strides=(1,1),padding='SAME',kernel_initializer='Zeros'):
+        super().__init__()
+        self.filters = filters
+        self.kernel_size = kernel_size
+        self.kernel_length = kernel_size[0]*kernel_size[1]
+        self.strides = strides
+        self.padding = padding
+        if kernel_initializer=='Zeros':
+            self.initializer=keras.initializers.Zeros()
+        elif kernel_initializer=='Uniform':
+            self.initializer=keras.initializers.RandomUniform(-1,0)
+        else:
+            self.initializer=kernel_initializer
+
+    # Create the state of the layer (weights)
+    def build(self, input_shape):
+        self.channels=input_shape[-1]
+        self.kernel = self.add_weight(
+            shape=(1, 1, 1, self.kernel_length,input_shape[-1], self.filters),
+            initializer=self.initializer,
+            trainable=True,
+            name="kernel",
+            )
+    # Defines the computation
+    def call(self, inputs):
+        #Erosion
+        patches = keras.ops.image.extract_patches(inputs, self.kernel_size,padding=self.padding,strides=self.strides)
+        b, h, w, c = keras.ops.shape(patches)
+        patches = keras.ops.reshape(patches, (b, h, w, self.kernel_length,self.channels))
+        res=keras.ops.min(keras.ops.expand_dims(patches,axis=-1) - self.kernel,axis=3)[:,:,:,:,0]
+        #Dilation
+        patches = keras.ops.image.extract_patches(res, self.kernel_size,padding=self.padding,strides=self.strides)
+        b, h, w, c = keras.ops.shape(patches)
+        patches = keras.ops.reshape(patches, (b, h, w, self.kernel_length,self.channels))
+        res=keras.ops.max(keras.ops.expand_dims(patches,axis=-1) + keras.ops.flip(self.kernel,axis=3),axis=3)[:,:,:,:,0]
+        return res
+
+    def get_config(self):
+        return {"filters": self.filters}
+
 #Reconstruction
 
 
