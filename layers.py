@@ -47,6 +47,8 @@ def leveling_iteration(X):
 
 ##Dilation Layers: This implementation compute image to neighborhood which is not involving tf.dilation2d as last version of morpholayers. This allow us to use different backends: jax,pytorch or tensoflow.
 
+##SE in 3D
+
 @keras.saving.register_keras_serializable()
 class DilationLayer(Layer):
     def __init__(self, filters=32,kernel_size=(3,3),strides=(1,1),padding='SAME'):
@@ -55,6 +57,7 @@ class DilationLayer(Layer):
         self.kernel_size = kernel_size
         self.kernel_length = kernel_size[0]*kernel_size[1]
         self.strides = strides
+        self.padding = padding
 
     # Create the state of the layer (weights)
     def build(self, input_shape):
@@ -66,21 +69,89 @@ class DilationLayer(Layer):
             )
     # Defines the computation
     def call(self, inputs):
-      patches = keras.ops.image.extract_patches(inputs, self.kernel_size,strides=self.strides)
+      patches = keras.ops.image.extract_patches(inputs, self.kernel_size,padding=self.padding,strides=self.strides)
       return keras.ops.max(keras.ops.expand_dims(patches,axis=-1) + self.kernel,axis=-2)
 
     def get_config(self):
         return {"filters": self.filters}
-
+        
+        
 @keras.saving.register_keras_serializable()
-class MarginalDilationLayer(Layer):
-    def __init__(self, filters=32,kernel_size=(3,3),strides=(1,1),padding='SAME',activation_kernel=None,kernel_initializer='Zeros'):
+class ErosionLayer(Layer):
+    def __init__(self, filters=32,kernel_size=(3,3),strides=(1,1),padding='SAME'):
         super().__init__()
         self.filters = filters
         self.kernel_size = kernel_size
         self.kernel_length = kernel_size[0]*kernel_size[1]
         self.strides = strides
-        self.activation_kernel=activation_kernel
+        self.padding = padding
+
+    # Create the state of the layer (weights)
+    def build(self, input_shape):
+        self.kernel = self.add_weight(
+            shape=(1, 1, 1, self.kernel_length*input_shape[-1], self.filters),
+            initializer="glorot_uniform",
+            trainable=True,
+            name="kernel",
+            )
+    # Defines the computation
+    def call(self, inputs):
+      patches = keras.ops.image.extract_patches(inputs, self.kernel_size,padding=self.padding,strides=self.strides)
+      return keras.ops.min(keras.ops.expand_dims(patches,axis=-1) - self.kernel,axis=-2)
+
+    def get_config(self):
+        return {"filters": self.filters}
+        
+        
+        
+## MARGINAL OPERATOR
+
+
+@keras.saving.register_keras_serializable()
+class MarginalDilationLayer(Layer):
+    def __init__(self, filters=32,kernel_size=(3,3),strides=(1,1),padding='SAME',kernel_initializer='Zeros'):
+        super().__init__()
+        self.filters = filters
+        self.kernel_size = kernel_size
+        self.kernel_length = kernel_size[0]*kernel_size[1]
+        self.strides = strides
+        self.padding = padding
+        if kernel_initializer=='Zeros':
+            self.initializer=keras.initializers.Zeros()
+        elif kernel_initializer=='Uniform':
+            self.initializer=keras.initializers.RandomUniform(-1,0)
+        else:
+            self.initializer=kernel_initializer
+
+    # Create the state of the layer (weights)
+    def build(self, input_shape):
+        self.channels=input_shape[-1]
+        self.kernel = self.add_weight(
+            shape=(1, 1, 1, self.kernel_length,input_shape[-1], self.filters),
+            initializer=self.initializer,
+            trainable=True,
+            name="kernel",
+            )
+    # Defines the computation
+    def call(self, inputs):
+        patches = keras.ops.image.extract_patches(inputs, self.kernel_size,padding=self.padding,strides=self.strides)
+        b, h, w, c = keras.ops.shape(patches)
+        patches = keras.ops.reshape(patches, (b, h, w, self.kernel_length,self.channels))
+        return keras.ops.max(keras.ops.expand_dims(patches,axis=-1) + self.kernel,axis=3)
+  
+    def get_config(self):
+        return {"filters": self.filters}
+
+
+@keras.saving.register_keras_serializable()
+class MarginalErosionLayer(Layer):
+    def __init__(self, filters=32,kernel_size=(3,3),strides=(1,1),padding='SAME',kernel_initializer='Zeros'):
+        super().__init__()
+        self.filters = filters
+        self.kernel_size = kernel_size
+        self.kernel_length = kernel_size[0]*kernel_size[1]
+        self.strides = strides
+        self.padding = padding
         if kernel_initializer=='Zeros':
             self.initializer=keras.initializers.Zeros()
         elif kernel_initializer=='Uniform':
@@ -102,17 +173,47 @@ class MarginalDilationLayer(Layer):
         patches = keras.ops.image.extract_patches(inputs, self.kernel_size,strides=self.strides)
         b, h, w, c = keras.ops.shape(patches)
         patches = keras.ops.reshape(patches, (b, h, w, self.kernel_length,self.channels))
-        if self.activation_kernel==None:
-            return keras.ops.max(keras.ops.expand_dims(patches,axis=-1) + self.kernel,axis=3)
-        elif self.activation_kernel=='sigmoid':
-            return keras.ops.max(keras.ops.expand_dims(patches,axis=-1) + keras.ops.sigmoid(self.kernel)-1,axis=3)
-        elif self.activation_kernel=='tanh':
-            return keras.ops.max(keras.ops.expand_dims(patches,axis=-1) + keras.ops.tanh(self.kernel),axis=3)
-  
+        return keras.ops.min(keras.ops.expand_dims(patches,axis=-1) - keras.ops.flip(self.kernel,axis=3),axis=3)
 
     def get_config(self):
         return {"filters": self.filters}
 
+@keras.saving.register_keras_serializable()
+class MarginalMEMLayer(Layer):
+    "Marginal Morphological Empirical Mode
+    "
+
+    def __init__(self, filters=32,kernel_size=(3,3),strides=(1,1),padding='SAME',kernel_initializer='Zeros'):
+        super().__init__()
+        self.filters = filters
+        self.kernel_size = kernel_size
+        self.kernel_length = kernel_size[0]*kernel_size[1]
+        self.strides = strides
+        if kernel_initializer=='Zeros':
+            self.initializer=keras.initializers.Zeros()
+        elif kernel_initializer=='Uniform':
+            self.initializer=keras.initializers.RandomUniform(-1,0)
+        else:
+            self.initializer=kernel_initializer
+
+    # Create the state of the layer (weights)
+    def build(self, input_shape):
+        self.channels=input_shape[-1]
+        self.kernel = self.add_weight(
+            shape=(1, 1, 1, self.kernel_length,input_shape[-1], self.filters),
+            initializer=self.initializer,
+            trainable=True,
+            name="kernel",
+            )
+    # Defines the computation
+    def call(self, inputs):
+        patches = keras.ops.image.extract_patches(inputs, self.kernel_size,strides=self.strides)
+        b, h, w, c = keras.ops.shape(patches)
+        patches = keras.ops.reshape(patches, (b, h, w, self.kernel_length,self.channels))
+        return keras.ops.max(keras.ops.expand_dims(patches,axis=-1) + self.kernel,axis=3) + keras.ops.min(keras.ops.expand_dims(patches,axis=-1) - keras.ops.flip(self.kernel,axis=3),axis=3)
+
+    def get_config(self):
+        return {"filters": self.filters}
 
 
 #Reconstruction
