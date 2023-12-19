@@ -171,7 +171,7 @@ class MarginalSortLayer(Layer):
         else:
             self.initializer=kernel_initializer
 
-    # Create the state of the layer (weights)
+    # Create the state of the layer (weights) ##
     def build(self, input_shape):
         self.channels=input_shape[-1]
         self.kernel = self.add_weight(
@@ -180,7 +180,7 @@ class MarginalSortLayer(Layer):
             trainable=True,
             name="kernel",
             )
-    # Defines the computation
+    # Defines the computation ##
     def call(self, inputs):
         patches = keras.ops.image.extract_patches(inputs, self.kernel_size,padding=self.padding,strides=self.strides)
         b, h, w, c = keras.ops.shape(patches)
