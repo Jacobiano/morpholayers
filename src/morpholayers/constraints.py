@@ -3,7 +3,6 @@ import numpy as np
 from tensorflow.keras.constraints import Constraint
 from tensorflow.keras import backend as K
 import skimage.morphology as skm
-import scipy.ndimage.morphology as snm
 
 """
 ===============

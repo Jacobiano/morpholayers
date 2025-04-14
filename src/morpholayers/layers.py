@@ -18,8 +18,6 @@ from tensorflow.keras.layers import Layer
 from tensorflow.python.keras.utils import conv_utils
 from tensorflow.keras.layers import InputSpec
 from tensorflow.python.ops import nn
-from tensorflow.python.ops import math_ops
-from tensorflow.python.ops import array_ops
 from tensorflow.python.keras import activations
 from morpholayers.constraints import SEconstraint, ZeroToOne
 from morpholayers.initializers import MinusOnesZeroCenter

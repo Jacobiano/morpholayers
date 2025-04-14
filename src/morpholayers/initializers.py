@@ -2,7 +2,6 @@ import tensorflow as tf
 import numpy as np
 from tensorflow.keras import backend as K
 from tensorflow.keras.initializers import Initializer
-import skimage.morphology as skm
 import scipy.ndimage.morphology as snm
 
 
