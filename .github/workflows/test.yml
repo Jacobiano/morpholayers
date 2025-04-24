@@ -1,0 +1,83 @@
+name: test_python
+
+on:
+  workflow_dispatch:
+  # Activate the workflow at each push on 'master' branch
+  push:
+    branches: [master]
+  # Activate the workflow at each pull request on 'master' branch
+  pull_request:
+    branches: [master]
+  # Activate the workflow every Sunday at 23:30 UTC = for Paris 00:30 (summer) or 01:30 (winter)
+  schedule:
+    # * is a special character in YAML so you have to quote the string
+    - cron:  '30 23 * * 0'
+
+jobs:
+  test:
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+        py: [
+          "3.9",
+          "3.10",
+          "3.11",
+          "3.12",
+        ]
+        exclude:
+          - os: windows-latest
+            py: "3.9"
+          - os: windows-latest
+            py: "3.10"
+          - os: windows-latest
+            py: "3.11"
+    runs-on: ${{ matrix.os }}
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Install the latest version of uv
+      uses: astral-sh/setup-uv@v6
+      with:
+        python-version: ${{ matrix.py }}
+
+    - name: Install Python package
+      run: |
+        uv sync
+
+    - name: Test installed Python package
+      run: |
+        uv run python -c "import morpholayers"
+
+    - name: Install notebooks dependencies
+      run: |
+        if [ "${{ matrix.os }}" == "ubuntu-latest" ]; then
+          sudo apt install -y graphviz
+        elif [ "${{ matrix.os }}" == "macos-latest" ]; then
+          brew install graphviz
+        elif [ "${{ matrix.os }}" == "windows-latest" ]; then
+          choco install graphviz
+        fi
+        uv pip install nbval matplotlib scikit-learn pydot
+      shell: bash
+
+    - name: Test notebooks
+      run: |
+        uv run pytest --nbval-lax
+      continue-on-error: true
+
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Install the latest version of uv
+      uses: astral-sh/setup-uv@v6
+
+    - name: Lint Python code with Ruff
+      continue-on-error: true
+      run: |
+        uvx ruff check
+
+    - name: Format Python code with Ruff
+      run: |
+        uvx ruff format --check
