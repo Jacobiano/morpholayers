@@ -1,0 +1,110 @@
+name: publish_wheel
+
+on:
+  workflow_dispatch:
+    inputs:
+      dry_publish:
+        description: 'Dry publish (no upload)'
+        type: boolean
+        required: false
+        default: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Install the latest version of uv
+      uses: astral-sh/setup-uv@v6
+
+    - name : Create Wheel
+      run : |
+        uv build --wheel
+
+    - uses: actions/upload-artifact@v4
+      with:
+        name: wheel
+        path: dist/*.whl
+
+  test:
+    needs: build
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+        py: [
+          "3.9",
+          "3.10",
+          "3.11",
+          "3.12",
+        ]
+        exclude:
+          - os: windows-latest
+            py: "3.9"
+          - os: windows-latest
+            py: "3.10"
+          - os: windows-latest
+            py: "3.11"
+    runs-on: ${{ matrix.os }}
+    steps:
+    - uses: actions/checkout@v4
+    - uses: actions/download-artifact@v4
+      with:
+        name: wheel
+
+    - name: Install the latest version of uv
+      uses: astral-sh/setup-uv@v6
+      with:
+        python-version: ${{ matrix.py }}
+
+    - name: Install Python package
+      run: |
+        uv venv
+        uv pip install $(ls *.whl)
+
+    - name: Test installed Python package
+      run: |
+        uv run python -c "import morpholayers"
+
+    - name: Install notebooks dependencies
+      run: |
+        if [ "${{ matrix.os }}" == "ubuntu-latest" ]; then
+          sudo apt install -y graphviz
+        elif [ "${{ matrix.os }}" == "macos-latest" ]; then
+          brew install graphviz
+        elif [ "${{ matrix.os }}" == "windows-latest" ]; then
+          choco install graphviz
+        fi
+        uv pip install nbval matplotlib scikit-learn pydot
+      shell: bash
+
+    - name: Test notebooks
+      run: |
+        uv run pytest --nbval-lax
+      continue-on-error: true
+
+  publish:
+    needs: test
+    if: ${{inputs.dry_publish == false}}
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/download-artifact@v4
+      with:
+        name: wheel
+
+    - name: Install the latest version of uv
+      uses: astral-sh/setup-uv@v6
+      with:
+        enable-cache: false
+        ignore-empty-workdir: true
+
+    - name: Upload packages to pypi
+      run: |
+        uv publish $(ls *.whl)
+      env:
+        UV_PUBLISH_TOKEN: ${{ secrets.PYPI_TOKEN }}
+
+    # Delete the artifacts (to free GitHub storage space)
+    - uses: geekyeggo/delete-artifact@v5
+      with:
+        name: wheel
