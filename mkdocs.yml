@@ -1,0 +1,8 @@
+site_name: "Morpholayers"
+
+theme:
+  name: "material"
+
+plugins:
+- search
+- mkdocstrings

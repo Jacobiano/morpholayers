@@ -1,0 +1,26 @@
+[build-system]
+requires = ["uv_build>=0.6,<0.7"]
+build-backend = "uv_build"
+
+[project]
+name = "morpholayers"
+version = "0.1.0"
+description = "Morphological Layers for Keras / Tensorflow 2"
+authors = [
+  {name = "Santiago Velasco-Forero", email = "santiago.velasco@minesparis.psl.eu"},
+  {name = "Samy Blusseau", email = "samy.blusseau@minesparis.psl.eu"},
+  {name = "Mateus Sangalli", email = "mateus.sangalli@minesparis.psl.eu"},
+]
+readme = "README.md"
+requires-python = ">=3.9"
+dependencies = [
+    "scikit-image>=0.24.0",
+    "scipy>=1.13.1",
+    "tensorflow>=2.19.0",
+]
+
+[project.optional-dependencies]
+doc = [
+    "mkdocs-material",
+    "mkdocstrings[python]",
+]
